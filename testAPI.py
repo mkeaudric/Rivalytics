@@ -1,8 +1,13 @@
 import requests
+import os
 
 # Replace the URL with one from the Available Endpoints
 url = "https://api.sectors.app/v2/companies/"
-api_key = "240d3ca634429f46d37f8da324022e98f1e922f0731d20340f76a4c504316ae7"
+
+api_key = os.getenv("SECTORS_API_KEY")
+if not api_key:
+    raise ValueError("API key not found! Ensure the SECTORS_API_KEY environment variable is set.")
+
 headers = {"Authorization": api_key}
 
 try:
