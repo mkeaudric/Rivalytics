@@ -31,11 +31,7 @@ def _find_snapshot_by_period(snapshots: list, quarter: int, year: int):
     return None
 
 
-def _yoy(snapshots: list, idx: int, field: str):
-    """
-    snapshots[idx] = kuartal yang mau dicek.
-    Return (current, previous, delta_pct) — YoY comparison.
-    """
+def _yoy(snapshots, idx, field):
     current = snapshots[idx]
     previous = _find_snapshot_by_period(
         snapshots, current["quarter"], current["year"] - 1
@@ -46,6 +42,15 @@ def _yoy(snapshots: list, idx: int, field: str):
 
     if cur_val is None or prev_val is None or prev_val == 0:
         return cur_val, prev_val, None
+
+    # Edge case: basis negatif → delta % gak bermakna
+    if prev_val < 0:
+        # Kalau dua-duanya negatif, kasih delta=None biar rule gak trigger
+        # (loss_making yang handle kasus ini)
+        if cur_val < 0:
+            return cur_val, prev_val, None
+        # Kalau basis negatif tapi sekarang positif → "recovery"
+        # juga skip, karena maknanya ambigu
 
     delta = (cur_val - prev_val) / abs(prev_val) * 100
     return cur_val, prev_val, round(delta, 2)
