@@ -1,0 +1,674 @@
+{
+  "2026-09-07": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 5737171600,
+      "price": 220
+    },
+    {
+      "symbol": "IATA.JK",
+      "company_name": "PT MNC Energy Investments Tbk",
+      "volume": 1522303900,
+      "price": 135
+    },
+    {
+      "symbol": "MEDS.JK",
+      "company_name": "PT Hetzer Medical Indonesia Tbk",
+      "volume": 1173817400,
+      "price": 97
+    },
+    {
+      "symbol": "MDIA.JK",
+      "company_name": "PT Intermedia Capital Tbk",
+      "volume": 1149658100,
+      "price": 250
+    },
+    {
+      "symbol": "DMAS.JK",
+      "company_name": "PT Puradelta Lestari Tbk",
+      "volume": 819761500,
+      "price": 202
+    }
+  ],
+  "2026-09-08": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 4912608300,
+      "price": 226
+    },
+    {
+      "symbol": "IATA.JK",
+      "company_name": "PT MNC Energy Investments Tbk",
+      "volume": 2409718600,
+      "price": 143
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 1517341600,
+      "price": 144
+    },
+    {
+      "symbol": "MEDS.JK",
+      "company_name": "PT Hetzer Medical Indonesia Tbk",
+      "volume": 1368457700,
+      "price": 103
+    },
+    {
+      "symbol": "INET.JK",
+      "company_name": "PT Sinergi Inti Andalan Prima Tbk",
+      "volume": 1085322000,
+      "price": 366
+    }
+  ],
+  "2026-09-09": [
+    {
+      "symbol": "BIPI.JK",
+      "company_name": "PT Astrindo Nusantara Infrastruktur Tbk.",
+      "volume": 4038562300,
+      "price": 158
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1606273500,
+      "price": 222
+    },
+    {
+      "symbol": "SQMI.JK",
+      "company_name": "Wilton Makmur Indonesia Tbk",
+      "volume": 1214307000,
+      "price": 105
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 1142614300,
+      "price": 144
+    },
+    {
+      "symbol": "IATA.JK",
+      "company_name": "PT MNC Energy Investments Tbk",
+      "volume": 842698900,
+      "price": 139
+    }
+  ],
+  "2026-09-10": [
+    {
+      "symbol": "KPIG.JK",
+      "company_name": "MNC Tourism Indonesia Tbk",
+      "volume": 4788733500,
+      "price": 85
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 4697826700,
+      "price": 212
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 1694206900,
+      "price": 95
+    },
+    {
+      "symbol": "WIRG.JK",
+      "company_name": "PT Wir Asia Tbk",
+      "volume": 1197028700,
+      "price": 80
+    },
+    {
+      "symbol": "IATA.JK",
+      "company_name": "PT MNC Energy Investments Tbk",
+      "volume": 1191739800,
+      "price": 128
+    }
+  ],
+  "2026-09-11": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 3243078600,
+      "price": 212
+    },
+    {
+      "symbol": "KPIG.JK",
+      "company_name": "MNC Tourism Indonesia Tbk",
+      "volume": 2148800900,
+      "price": 79
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 985393700,
+      "price": 95
+    },
+    {
+      "symbol": "WIRG.JK",
+      "company_name": "PT Wir Asia Tbk",
+      "volume": 774952500,
+      "price": 77
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 727197200,
+      "price": 131
+    }
+  ],
+  "2026-09-14": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 5685408800,
+      "price": 208
+    },
+    {
+      "symbol": "LAPD.JK",
+      "company_name": "Leyand International Tbk",
+      "volume": 1088719100,
+      "price": 93
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 916117900,
+      "price": 93
+    },
+    {
+      "symbol": "DEWA.JK",
+      "company_name": "Darma Henwa Tbk",
+      "volume": 910546300,
+      "price": 406
+    },
+    {
+      "symbol": "KPIG.JK",
+      "company_name": "MNC Tourism Indonesia Tbk",
+      "volume": 817150400,
+      "price": 81
+    }
+  ],
+  "2026-09-15": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 2751551200,
+      "price": 208
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 1747011400,
+      "price": 139
+    },
+    {
+      "symbol": "LAPD.JK",
+      "company_name": "Leyand International Tbk",
+      "volume": 1383087700,
+      "price": 84
+    },
+    {
+      "symbol": "AHAP.JK",
+      "company_name": "Asuransi Harta Aman Pratama Tbk",
+      "volume": 701612600,
+      "price": 118
+    },
+    {
+      "symbol": "DEFI.JK",
+      "company_name": "Danasupra Erapacific Tbk",
+      "volume": 626367400,
+      "price": 139
+    }
+  ],
+  "2026-09-16": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 2455123200,
+      "price": 202
+    },
+    {
+      "symbol": "DEWA.JK",
+      "company_name": "Darma Henwa Tbk",
+      "volume": 935627600,
+      "price": 370
+    },
+    {
+      "symbol": "DPUM.JK",
+      "company_name": "PT Dua Putra Utama Makmur Tbk",
+      "volume": 708954200,
+      "price": 159
+    },
+    {
+      "symbol": "SLIS.JK",
+      "company_name": "PT Gaya Abadi Sempurna Tbk",
+      "volume": 684854000,
+      "price": 93
+    },
+    {
+      "symbol": "DEFI.JK",
+      "company_name": "Danasupra Erapacific Tbk",
+      "volume": 574134900,
+      "price": 119
+    }
+  ],
+  "2026-09-17": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 3095820100,
+      "price": 202
+    },
+    {
+      "symbol": "SQMI.JK",
+      "company_name": "Wilton Makmur Indonesia Tbk",
+      "volume": 852822100,
+      "price": 98
+    },
+    {
+      "symbol": "SRSN.JK",
+      "company_name": "Indo Acidatama Tbk",
+      "volume": 828288800,
+      "price": 116
+    },
+    {
+      "symbol": "DEWA.JK",
+      "company_name": "Darma Henwa Tbk",
+      "volume": 791954100,
+      "price": 382
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 777340900,
+      "price": 90
+    }
+  ],
+  "2026-09-18": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 3398895800,
+      "price": 193
+    },
+    {
+      "symbol": "SRSN.JK",
+      "company_name": "Indo Acidatama Tbk",
+      "volume": 1529947900,
+      "price": 129
+    },
+    {
+      "symbol": "BRMS.JK",
+      "company_name": "Bumi Resources Minerals Tbk",
+      "volume": 872252700,
+      "price": 720
+    },
+    {
+      "symbol": "LPKR.JK",
+      "company_name": "Lippo Karawaci Tbk",
+      "volume": 866885500,
+      "price": 53
+    },
+    {
+      "symbol": "SQMI.JK",
+      "company_name": "Wilton Makmur Indonesia Tbk",
+      "volume": 637472600,
+      "price": 99
+    }
+  ],
+  "2026-09-21": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1812953700,
+      "price": 192
+    },
+    {
+      "symbol": "SQMI.JK",
+      "company_name": "Wilton Makmur Indonesia Tbk",
+      "volume": 1800324500,
+      "price": 109
+    },
+    {
+      "symbol": "TRUE.JK",
+      "company_name": "PT Triniti Dinamik Tbk",
+      "volume": 1376776300,
+      "price": 90
+    },
+    {
+      "symbol": "BIPI.JK",
+      "company_name": "PT Astrindo Nusantara Infrastruktur Tbk.",
+      "volume": 793521700,
+      "price": 150
+    },
+    {
+      "symbol": "BULL.JK",
+      "company_name": "PT Buana Lintas Lautan Tbk.",
+      "volume": 622808100,
+      "price": 404
+    }
+  ],
+  "2026-09-22": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 3843560500,
+      "price": 184
+    },
+    {
+      "symbol": "TRUE.JK",
+      "company_name": "PT Triniti Dinamik Tbk",
+      "volume": 1848256000,
+      "price": 79
+    },
+    {
+      "symbol": "SRSN.JK",
+      "company_name": "Indo Acidatama Tbk",
+      "volume": 1028825700,
+      "price": 129
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 939179800,
+      "price": 83
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 869686800,
+      "price": 118
+    }
+  ],
+  "2026-09-23": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 2764759800,
+      "price": 193
+    },
+    {
+      "symbol": "KPIG.JK",
+      "company_name": "MNC Tourism Indonesia Tbk",
+      "volume": 1387798500,
+      "price": 55
+    },
+    {
+      "symbol": "ZATA.JK",
+      "company_name": "PT Bersama Zatta Jaya Tbk",
+      "volume": 1172233400,
+      "price": 65
+    },
+    {
+      "symbol": "TOOL.JK",
+      "company_name": "PT Rohartindo Nusantara Luas Tbk",
+      "volume": 949281800,
+      "price": 72
+    },
+    {
+      "symbol": "CARE.JK",
+      "company_name": "PT Metro Healthcare Indonesia Tbk",
+      "volume": 902526300,
+      "price": 392
+    }
+  ],
+  "2026-09-24": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 2109260300,
+      "price": 185
+    },
+    {
+      "symbol": "KPIG.JK",
+      "company_name": "MNC Tourism Indonesia Tbk",
+      "volume": 1098456500,
+      "price": 50
+    },
+    {
+      "symbol": "SDMU.JK",
+      "company_name": "Sidomulyo Selaras Tbk",
+      "volume": 981265200,
+      "price": 76
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 739189400,
+      "price": 81
+    },
+    {
+      "symbol": "ASLI.JK",
+      "company_name": "PT Asri Karya Lestari Tbk.",
+      "volume": 684639500,
+      "price": 486
+    }
+  ],
+  "2026-09-25": [
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 1868969000,
+      "price": 75
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1540208500,
+      "price": 182
+    },
+    {
+      "symbol": "IATA.JK",
+      "company_name": "PT MNC Energy Investments Tbk",
+      "volume": 963864500,
+      "price": 91
+    },
+    {
+      "symbol": "PADI.JK",
+      "company_name": "Minna Padi Investama Sekuritas Tbk",
+      "volume": 805567500,
+      "price": 50
+    },
+    {
+      "symbol": "BIPP.JK",
+      "company_name": "Bhuwanatala Indah Permai Tbk",
+      "volume": 683284600,
+      "price": 75
+    }
+  ],
+  "2026-09-28": [
+    {
+      "symbol": "ELTY.JK",
+      "company_name": "Bakrieland Development Tbk",
+      "volume": 1831753100,
+      "price": 37
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1476778100,
+      "price": 180
+    },
+    {
+      "symbol": "BTEK.JK",
+      "company_name": "Bumi Teknokultura Unggul Tbk",
+      "volume": 998094700,
+      "price": 14
+    },
+    {
+      "symbol": "TAXI.JK",
+      "company_name": "Express Transindo Utama Tbk",
+      "volume": 995175400,
+      "price": 18
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 900009900,
+      "price": 73
+    }
+  ],
+  "2026-09-29": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 2431993400,
+      "price": 177
+    },
+    {
+      "symbol": "BTEK.JK",
+      "company_name": "Bumi Teknokultura Unggul Tbk",
+      "volume": 2238303100,
+      "price": 14
+    },
+    {
+      "symbol": "KPIG.JK",
+      "company_name": "MNC Tourism Indonesia Tbk",
+      "volume": 1492147500,
+      "price": 48
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 1235944100,
+      "price": 73
+    },
+    {
+      "symbol": "PADI.JK",
+      "company_name": "Minna Padi Investama Sekuritas Tbk",
+      "volume": 1109368000,
+      "price": 42
+    }
+  ],
+  "2026-09-30": [
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1715104600,
+      "price": 175
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 1122042700,
+      "price": 73
+    },
+    {
+      "symbol": "WMUU.JK",
+      "company_name": "PT Widodo Makmur Unggas Tbk",
+      "volume": 921483400,
+      "price": 33
+    },
+    {
+      "symbol": "GOTO.JK",
+      "company_name": "PT GoTo Gojek Tokopedia Tbk",
+      "volume": 857223700,
+      "price": 32
+    },
+    {
+      "symbol": "SRSN.JK",
+      "company_name": "Indo Acidatama Tbk",
+      "volume": 829688900,
+      "price": 134
+    }
+  ],
+  "2026-10-01": [
+    {
+      "symbol": "GOTO.JK",
+      "company_name": "PT GoTo Gojek Tokopedia Tbk",
+      "volume": 7731187800,
+      "price": 28
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1951232800,
+      "price": 170
+    },
+    {
+      "symbol": "BNBR.JK",
+      "company_name": "Bakrie & Brothers Tbk",
+      "volume": 558799500,
+      "price": 73
+    },
+    {
+      "symbol": "BTEK.JK",
+      "company_name": "Bumi Teknokultura Unggul Tbk",
+      "volume": 528339500,
+      "price": 12
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 509904000,
+      "price": 111
+    }
+  ],
+  "2026-10-02": [
+    {
+      "symbol": "GOTO.JK",
+      "company_name": "PT GoTo Gojek Tokopedia Tbk",
+      "volume": 97541478600,
+      "price": 30
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1797086800,
+      "price": 175
+    },
+    {
+      "symbol": "INET.JK",
+      "company_name": "PT Sinergi Inti Andalan Prima Tbk",
+      "volume": 531420500,
+      "price": 262
+    },
+    {
+      "symbol": "DOOH.JK",
+      "company_name": "PT Era Media Sejahtera Tbk",
+      "volume": 442965500,
+      "price": 366
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 421083600,
+      "price": 115
+    }
+  ],
+  "2026-10-05": [
+    {
+      "symbol": "GOTO.JK",
+      "company_name": "PT GoTo Gojek Tokopedia Tbk",
+      "volume": 18949409600,
+      "price": 29
+    },
+    {
+      "symbol": "BUMI.JK",
+      "company_name": "Bumi Resources Tbk",
+      "volume": 1515895700,
+      "price": 178
+    },
+    {
+      "symbol": "DADA.JK",
+      "company_name": "PT Diamond Citra Propertindo Tbk.",
+      "volume": 1096738600,
+      "price": 25
+    },
+    {
+      "symbol": "COCO.JK",
+      "company_name": "PT Wahana Interfood Nusantara Tbk",
+      "volume": 786939800,
+      "price": 132
+    },
+    {
+      "symbol": "KIJA.JK",
+      "company_name": "Kawasan Industri Jababeka Tbk",
+      "volume": 608574600,
+      "price": 162
+    }
+  ]
+}

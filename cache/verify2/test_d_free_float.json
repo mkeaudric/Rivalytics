@@ -1,0 +1,512 @@
+[
+  {
+    "symbol": "WMUU.JK",
+    "company_name": "PT Widodo Makmur Unggas Tbk",
+    "free_float": 0.5905
+  },
+  {
+    "symbol": "CPRO.JK",
+    "company_name": "Central Proteina Prima Tbk",
+    "free_float": 0.5483
+  },
+  {
+    "symbol": "IPPE.JK",
+    "company_name": "PT Indo Pureco Pratama Tbk",
+    "free_float": 0.5337
+  },
+  {
+    "symbol": "BRRC.JK",
+    "company_name": "PT Raja Roti Cemerlang Tbk",
+    "free_float": 0.5231
+  },
+  {
+    "symbol": "INDF.JK",
+    "company_name": "Indofood Sukses Makmur Tbk",
+    "free_float": 0.4991
+  },
+  {
+    "symbol": "UDNG.JK",
+    "company_name": "PT Agro Bahari Nusantara Tbk",
+    "free_float": 0.4901
+  },
+  {
+    "symbol": "BTEK.JK",
+    "company_name": "Bumi Teknokultura Unggul Tbk",
+    "free_float": 0.4856
+  },
+  {
+    "symbol": "IKAN.JK",
+    "company_name": "PT Era Mandiri Cemerlang Tbk",
+    "free_float": 0.4848
+  },
+  {
+    "symbol": "COCO.JK",
+    "company_name": "PT Wahana Interfood Nusantara Tbk",
+    "free_float": 0.4784
+  },
+  {
+    "symbol": "ASHA.JK",
+    "company_name": "PT Cilacap Samudera Fishing Industry Tbk",
+    "free_float": 0.445
+  },
+  {
+    "symbol": "JPFA.JK",
+    "company_name": "JAPFA Comfeed Indonesia Tbk",
+    "free_float": 0.4345
+  },
+  {
+    "symbol": "TAYS.JK",
+    "company_name": "PT Jaya Swarasa Agung Tbk",
+    "free_float": 0.4335
+  },
+  {
+    "symbol": "DSNG.JK",
+    "company_name": "PT Dharma Satya Nusantara Tbk",
+    "free_float": 0.4314
+  },
+  {
+    "symbol": "GZCO.JK",
+    "company_name": "Gozco Plantations Tbk",
+    "free_float": 0.4137
+  },
+  {
+    "symbol": "ANDI.JK",
+    "company_name": "PT Andira Agro Tbk",
+    "free_float": 0.4101
+  },
+  {
+    "symbol": "LSIP.JK",
+    "company_name": "PP London Sumatra Indonesia Tbk",
+    "free_float": 0.405
+  },
+  {
+    "symbol": "TBLA.JK",
+    "company_name": "Tunas Baru Lampung Tbk",
+    "free_float": 0.4024
+  },
+  {
+    "symbol": "BUDI.JK",
+    "company_name": "PT Budi Starch & Sweetener Tbk.",
+    "free_float": 0.40069
+  },
+  {
+    "symbol": "BISI.JK",
+    "company_name": "BISI INTERNATIONAL Tbk",
+    "free_float": 0.3944
+  },
+  {
+    "symbol": "CPIN.JK",
+    "company_name": "Charoen Pokphand Indonesia Tbk",
+    "free_float": 0.3849
+  },
+  {
+    "symbol": "MAIN.JK",
+    "company_name": "Malindo Feedmill Tbk",
+    "free_float": 0.3692
+  },
+  {
+    "symbol": "OILS.JK",
+    "company_name": "PT Indo Oil Perkasa Tbk",
+    "free_float": 0.3687
+  },
+  {
+    "symbol": "IBOS.JK",
+    "company_name": "PT Indo Boga Sukses Tbk",
+    "free_float": 0.3634
+  },
+  {
+    "symbol": "DPUM.JK",
+    "company_name": "PT Dua Putra Utama Makmur Tbk",
+    "free_float": 0.3489
+  },
+  {
+    "symbol": "DEWI.JK",
+    "company_name": "PT Dewi Shri Farmindo Tbk",
+    "free_float": 0.3488
+  },
+  {
+    "symbol": "NAYZ.JK",
+    "company_name": "PT Hassana Boga Sejahtera Tbk",
+    "free_float": 0.3289
+  },
+  {
+    "symbol": "HOKI.JK",
+    "company_name": "PT Buyung Poetra Sembada Tbk",
+    "free_float": 0.32409
+  },
+  {
+    "symbol": "MAXI.JK",
+    "company_name": "PT Maxindo Karya Anugerah Tbk",
+    "free_float": 0.323
+  },
+  {
+    "symbol": "GOOD.JK",
+    "company_name": "PT Garudafood Putra Putri Jaya Tbk",
+    "free_float": 0.30973
+  },
+  {
+    "symbol": "ENZO.JK",
+    "company_name": "PT Morenzo Abadi Perkasa Tbk",
+    "free_float": 0.3085
+  },
+  {
+    "symbol": "ALTO.JK",
+    "company_name": "Tri Banyan Tirta Tbk",
+    "free_float": 0.3076
+  },
+  {
+    "symbol": "DSFI.JK",
+    "company_name": "Dharma Samudera Fishing Ind. Tbk",
+    "free_float": 0.304
+  },
+  {
+    "symbol": "PMMP.JK",
+    "company_name": "PT Panca Mitra Multiperdana Tbk",
+    "free_float": 0.3026
+  },
+  {
+    "symbol": "CBUT.JK",
+    "company_name": "PT Citra Borneo Utama Tbk",
+    "free_float": 0.29784
+  },
+  {
+    "symbol": "SSMS.JK",
+    "company_name": "PT Sawit Sumbermas Sarana Tbk",
+    "free_float": 0.2916
+  },
+  {
+    "symbol": "NSSS.JK",
+    "company_name": "PT Nusantara Sawit Sejahtera Tbk",
+    "free_float": 0.28842
+  },
+  {
+    "symbol": "STAA.JK",
+    "company_name": "PT Sumber Tani Agung Resources Tbk",
+    "free_float": 0.281
+  },
+  {
+    "symbol": "MAGP.JK",
+    "company_name": "Multi Agro Gemilang Plantation Tbk",
+    "free_float": 0.2754
+  },
+  {
+    "symbol": "SOUL.JK",
+    "company_name": "PT Mitra Tirta Buwana Tbk",
+    "free_float": 0.2679
+  },
+  {
+    "symbol": "GULA.JK",
+    "company_name": "PT Aman Agrindo Tbk",
+    "free_float": 0.2661
+  },
+  {
+    "symbol": "WMPP.JK",
+    "company_name": "PT Widodo Makmur Perkasa Tbk",
+    "free_float": 0.26544
+  },
+  {
+    "symbol": "AISA.JK",
+    "company_name": "PT FKS Food Sejahtera Tbk",
+    "free_float": 0.25851
+  },
+  {
+    "symbol": "AGAR.JK",
+    "company_name": "PT Asia Sejahtera Mina Tbk",
+    "free_float": 0.2501
+  },
+  {
+    "symbol": "NASI.JK",
+    "company_name": "PT Wahana Inti Makmur Tbk",
+    "free_float": 0.25
+  },
+  {
+    "symbol": "AMMS.JK",
+    "company_name": "PT Agung Menjangan Mas Tbk",
+    "free_float": 0.249
+  },
+  {
+    "symbol": "SKBM.JK",
+    "company_name": "Sekar Bumi Tbk",
+    "free_float": 0.2469
+  },
+  {
+    "symbol": "BWPT.JK",
+    "company_name": "Eagle High Plantations Tbk",
+    "free_float": 0.2398
+  },
+  {
+    "symbol": "BEER.JK",
+    "company_name": "PT Jobubu Jarum Minahasa Tbk",
+    "free_float": 0.2381
+  },
+  {
+    "symbol": "GOLL.JK",
+    "company_name": "PT Golden Plantation Tbk",
+    "free_float": 0.2358
+  },
+  {
+    "symbol": "MKTR.JK",
+    "company_name": "PT Menthobi Karyatama Raya Tbk",
+    "free_float": 0.23438
+  },
+  {
+    "symbol": "WAPO.JK",
+    "company_name": "Wahana Pronatural Tbk",
+    "free_float": 0.2343
+  },
+  {
+    "symbol": "FOOD.JK",
+    "company_name": "PT Sentra Food Indonesia Tbk",
+    "free_float": 0.2308
+  },
+  {
+    "symbol": "STRK.JK",
+    "company_name": "PT Lovina Beach Brewery Tbk",
+    "free_float": 0.2226
+  },
+  {
+    "symbol": "AYAM.JK",
+    "company_name": "PT Janu Putra Sejahtera Tbk.",
+    "free_float": 0.2177
+  },
+  {
+    "symbol": "UNSP.JK",
+    "company_name": "Bakrie Sumatera Plantations Tbk",
+    "free_float": 0.2147
+  },
+  {
+    "symbol": "GRPM.JK",
+    "company_name": "PT Graha Prima Mentari Tbk",
+    "free_float": 0.2136
+  },
+  {
+    "symbol": "CLEO.JK",
+    "company_name": "PT Sariguna Primatirta Tbk",
+    "free_float": 0.21248
+  },
+  {
+    "symbol": "BEEF.JK",
+    "company_name": "PT Estika Tata Tiara Tbk.",
+    "free_float": 0.21203
+  },
+  {
+    "symbol": "PTPS.JK",
+    "company_name": "PT Pulau Subur Tbk",
+    "free_float": 0.2111
+  },
+  {
+    "symbol": "JELI.JK",
+    "company_name": "PT Niramas Utama Tbk",
+    "free_float": 0.2101
+  },
+  {
+    "symbol": "ISEA.JK",
+    "company_name": "PT Indo American Seafoods Tbk",
+    "free_float": 0.2086
+  },
+  {
+    "symbol": "TGUK.JK",
+    "company_name": "PT Platinum Wahab Nusantara Tbk",
+    "free_float": 0.2068
+  },
+  {
+    "symbol": "AALI.JK",
+    "company_name": "Astra Agro Lestari Tbk",
+    "free_float": 0.2032
+  },
+  {
+    "symbol": "GUNA.JK",
+    "company_name": "PT Gunanusa Eramandiri Tbk",
+    "free_float": 0.2
+  },
+  {
+    "symbol": "STTP.JK",
+    "company_name": "PT Siantar Top Tbk",
+    "free_float": 0.19797
+  },
+  {
+    "symbol": "ICBP.JK",
+    "company_name": "Indofood CBP Sukses Makmur Tbk",
+    "free_float": 0.1947
+  },
+  {
+    "symbol": "CSRA.JK",
+    "company_name": "PT Cisadane Sawit Raya Tbk.",
+    "free_float": 0.1936
+  },
+  {
+    "symbol": "CMRY.JK",
+    "company_name": "PT Cisarua Mountain Dairy Tbk",
+    "free_float": 0.1928
+  },
+  {
+    "symbol": "BOBA.JK",
+    "company_name": "PT Formosa Ingredient Factory Tbk",
+    "free_float": 0.1926
+  },
+  {
+    "symbol": "TRGU.JK",
+    "company_name": "PT Cerestar Indonesia Tbk",
+    "free_float": 0.18851
+  },
+  {
+    "symbol": "MGRO.JK",
+    "company_name": "PT Mahkota Group Tbk",
+    "free_float": 0.1813
+  },
+  {
+    "symbol": "ULTJ.JK",
+    "company_name": "PT Ultrajaya Milk Industry & Trading Company Tbk",
+    "free_float": 0.1792
+  },
+  {
+    "symbol": "WINE.JK",
+    "company_name": "PT Hatten Bali Tbk",
+    "free_float": 0.17671
+  },
+  {
+    "symbol": "TAPG.JK",
+    "company_name": "PT Triputra Agro Persada Tbk",
+    "free_float": 0.16955
+  },
+  {
+    "symbol": "SKLT.JK",
+    "company_name": "Sekar Laut Tbk",
+    "free_float": 0.168
+  },
+  {
+    "symbol": "DLTA.JK",
+    "company_name": "Delta Djakarta Tbk",
+    "free_float": 0.1542
+  },
+  {
+    "symbol": "CRAB.JK",
+    "company_name": "PT Toba Surimi Industries Tbk",
+    "free_float": 0.152
+  },
+  {
+    "symbol": "FORE.JK",
+    "company_name": "PT Fore Kopi Indonesia Tbk",
+    "free_float": 0.15162
+  },
+  {
+    "symbol": "SIMP.JK",
+    "company_name": "Salim Ivomas Pratama Tbk",
+    "free_float": 0.146
+  },
+  {
+    "symbol": "NEST.JK",
+    "company_name": "PT Esta Indonesia Tbk",
+    "free_float": 0.1449
+  },
+  {
+    "symbol": "MYOR.JK",
+    "company_name": "Mayora Indah Tbk",
+    "free_float": 0.1419
+  },
+  {
+    "symbol": "CEKA.JK",
+    "company_name": "PT Wilmar Cahaya Indonesia Tbk.",
+    "free_float": 0.14
+  },
+  {
+    "symbol": "RLCO.JK",
+    "company_name": "PT Abadi Lestari Indonesia Tbk",
+    "free_float": 0.1373
+  },
+  {
+    "symbol": "JARR.JK",
+    "company_name": "PT Jhonlin Agro Raya Tbk",
+    "free_float": 0.1336
+  },
+  {
+    "symbol": "PSGO.JK",
+    "company_name": "PT Palma Serasih Tbk",
+    "free_float": 0.1312
+  },
+  {
+    "symbol": "PSDN.JK",
+    "company_name": "Prasidha Aneka Niaga Tbk",
+    "free_float": 0.12179
+  },
+  {
+    "symbol": "MLBI.JK",
+    "company_name": "Multi Bintang Indonesia Tbk",
+    "free_float": 0.1068
+  },
+  {
+    "symbol": "KEJU.JK",
+    "company_name": "PT Mulia Boga Raya Tbk",
+    "free_float": 0.1065
+  },
+  {
+    "symbol": "FISH.JK",
+    "company_name": "FKS Multi Agro Tbk",
+    "free_float": 0.1054
+  },
+  {
+    "symbol": "YUPI.JK",
+    "company_name": "PT Yupi Indo Jelly Gum Tbk",
+    "free_float": 0.1
+  },
+  {
+    "symbol": "FAPA.JK",
+    "company_name": "PT FAP Agri Tbk",
+    "free_float": 0.0987
+  },
+  {
+    "symbol": "CAMP.JK",
+    "company_name": "PT Campina Ice Cream Industry Tbk.",
+    "free_float": 0.0948
+  },
+  {
+    "symbol": "SIPD.JK",
+    "company_name": "PT Sreeya Sewu Indonesia Tbk",
+    "free_float": 0.0922
+  },
+  {
+    "symbol": "TGKA.JK",
+    "company_name": "Tigaraksa Satria Tbk",
+    "free_float": 0.0881
+  },
+  {
+    "symbol": "ADES.JK",
+    "company_name": "Akasha Wira International Tbk",
+    "free_float": 0.08228
+  },
+  {
+    "symbol": "TLDN.JK",
+    "company_name": "PT Teladan Prima Agro Tbk",
+    "free_float": 0.07673
+  },
+  {
+    "symbol": "PGUN.JK",
+    "company_name": "PT Pradiksi Gunatama Tbk",
+    "free_float": 0.0762
+  },
+  {
+    "symbol": "SMAR.JK",
+    "company_name": "PT Sinar Mas Agro Resources and Technology Tbk",
+    "free_float": 0.076
+  },
+  {
+    "symbol": "ROTI.JK",
+    "company_name": "PT Nippon Indosari Corpindo Tbk",
+    "free_float": 0.076
+  },
+  {
+    "symbol": "JAWA.JK",
+    "company_name": "Jaya Agra Wattie Tbk",
+    "free_float": 0.075
+  },
+  {
+    "symbol": "ANJT.JK",
+    "company_name": "PT Austindo Nusantara Jaya Tbk.",
+    "free_float": 0.04083
+  },
+  {
+    "symbol": "SGRO.JK",
+    "company_name": "PT Prime Agri Resources Tbk",
+    "free_float": 0.01301
+  }
+]
