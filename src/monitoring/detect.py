@@ -10,7 +10,7 @@ Setiap signal dimasukkan ke DB dengan:
 - context: JSON string dengan detail (YoY, QoQ, dsb)
 """
 import json
-from db import get_conn, get_snapshots, insert_signal
+from core.db import get_conn, get_snapshots, insert_signal
 
 
 # Thresholds (dalam persen)
