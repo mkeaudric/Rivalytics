@@ -39,37 +39,70 @@ class Ingestor:
         return self._get(f"/financials/quarterly/{symbol}/",
                          params={"n_quarters": n_quarters})
 
-    def ingest(self, symbol: str, n_quarters: int = 8) -> dict:
+    def ingest_smart(self, symbol: str):
         """
-        Fetch + store 1 company. Return summary.
+        Incremental ingest:
+        - Company baru: fetch 5 kuartal (5 credits)
+        - Company lama: cek quarter baru, fetch seperlunya (1-2 credits)
         """
         symbol = _clean_symbol(symbol)
-        print(f"\n[ingest] {symbol}")
-
         conn = get_conn()
+
         try:
-            # --- Overview ---
-            print(f"  → fetching overview...")
-            report = self.fetch_overview(symbol)
-            ov = report.get("overview", {})
-            upsert_company(conn, symbol, report.get("company_name", symbol), ov)
-            print(f"    ✓ {report.get('company_name')} | MC: {ov.get('market_cap', 0):,}")
+            # Cek: sudah punya snapshot?
+            existing = conn.execute("""
+                SELECT MAX(report_date) as latest FROM financial_snapshots
+                WHERE symbol = ?
+            """, [symbol]).fetchone()
+            latest_in_db = existing["latest"] if existing else None
 
-            # --- Quarterly ---
-            print(f"  → fetching quarterly (n={n_quarters})...")
-            snapshots = self.fetch_quarterly(symbol, n_quarters)
+            if latest_in_db is None:
+                # === INITIAL LOAD ===
+                print(f"  [{symbol}] initial load (5 kuartal, ~5 credits)")
+                report = self.fetch_overview(symbol)
+                ov = report.get("overview", {})
+                upsert_company(conn, symbol, report.get("company_name", symbol), ov)
 
-            for q in snapshots:
-                upsert_snapshot(conn, symbol, q)
+                snapshots = self.fetch_quarterly(symbol, n_quarters=5)
+                for q in snapshots:
+                    upsert_snapshot(conn, symbol, q)
+                conn.commit()
+                return {"symbol": symbol, "mode": "initial", "n": len(snapshots)}
 
-            conn.commit()
-            print(f"    ✓ {len(snapshots)} snapshots stored")
+            else:
+                # === INCREMENTAL ===
+                # Cek dates yang tersedia di API
+                dates = self._get(f"/company/get_quarterly_financial_dates/{symbol}/")
+                # dates = {"2026": [["2026-03-31", "q1"], ["2026-06-30", "q2"]], ...}
 
-            return {
-                "symbol": symbol,
-                "name": report.get("company_name"),
-                "snapshots_stored": len(snapshots),
-            }
+                # Flatten
+                all_dates = []
+                for year, rows in dates.items():
+                    for report_date, quarter in rows:
+                        all_dates.append(report_date)
+
+                # Filter yang belum ada di DB
+                existing_dates = {
+                    r["report_date"] for r in conn.execute(
+                        "SELECT report_date FROM financial_snapshots WHERE symbol = ?",
+                        [symbol]
+                    ).fetchall()
+                }
+                new_dates = sorted(set(all_dates) - existing_dates)
+
+                if not new_dates:
+                    print(f"  [{symbol}] up-to-date (0 credits for data)")
+                    return {"symbol": symbol, "mode": "noop", "n": 0}
+
+                # Fetch n_quarters = jumlah quarter baru (dari terbaru)
+                n_new = len(new_dates)
+                print(f"  [{symbol}] {n_new} kuartal baru ditemukan, fetching...")
+                snapshots = self.fetch_quarterly(symbol, n_quarters=n_new)
+                for q in snapshots:
+                    upsert_snapshot(conn, symbol, q)
+                conn.commit()
+                return {"symbol": symbol, "mode": "incremental", "n": n_new}
+
         finally:
             conn.close()
 
