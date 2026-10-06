@@ -1,3 +1,4 @@
 .env
 testing_playground/*
 cache/*
+__pycache__/
