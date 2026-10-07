@@ -103,6 +103,29 @@ CREATE TABLE IF NOT EXISTS relationships (
     FOREIGN KEY (company_symbol) REFERENCES companies(symbol)
 );
 
+CREATE TABLE IF NOT EXISTS org_snapshots (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id     INTEGER NOT NULL,
+    period_label        TEXT NOT NULL,        -- 'Q2-2026'
+    report_date         TEXT NOT NULL,        -- '2026-06-30'
+    quarter             INTEGER NOT NULL,
+    year                INTEGER NOT NULL,
+    revenue             INTEGER,
+    earnings            INTEGER,
+    total_assets        INTEGER,
+    total_liabilities   INTEGER,
+    total_debt          INTEGER,
+    operating_cash_flow INTEGER,
+    source              TEXT DEFAULT 'csv',   -- 'csv' | 'manual' | 'sectors'
+    notes               TEXT,
+    created_at          TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(organization_id, period_label),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_org_snap_org
+    ON org_snapshots(organization_id, period_label DESC);
+
 CREATE INDEX IF NOT EXISTS idx_relationships_org
     ON relationships(organization_id);
 

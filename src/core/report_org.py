@@ -1,66 +1,45 @@
 """
 report_org.py — Report dari perspektif organization.
-Signal yang sama, tapi interpretasi beda per relationship.
+
+Signal yang sama, tapi interpretasi beda per relationship,
+dan makin tajam kalau user udah upload data finansial mereka.
 """
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.db import get_conn, get_relationships, get_organization
+from core.context_interpreter import interpret
+from core.csv_import import get_org_snapshots
 
 
-# Interpretasi signal per relationship type
-INTERPRETATION = {
-    "competitor": {
-        "revenue_deterioration": ("Competitor revenue declining", "Potensi peluang ambil market share"),
-        "profit_deterioration":  ("Competitor profitability dropping", "Peluang kompetitif, tapi cek apakah sektor-wide"),
-        "leverage_increase":     ("Competitor mengambil lebih banyak utang", "Bisa ekspansi agresif atau distress"),
-        "cash_flow_weakness":    ("Competitor cash flow melemah", "Kemungkinan kesulitan operasional"),
-        "loss_making":           ("Competitor rugi kuartal ini", "Peluang, tapi hati-hati ada perang harga"),
-    },
-    "supplier": {
-        "revenue_deterioration": ("Supplier revenue turun", "⚠ Risiko supply chain"),
-        "profit_deterioration":  ("Supplier profitability turun", "⚠ Risiko keberlanjutan supplier"),
-        "leverage_increase":     ("Supplier tambah utang", "⚠ Risiko finansial supplier"),
-        "cash_flow_weakness":    ("Supplier cash flow melemah", "⚠ Risiko gagal bayar / delivery"),
-        "loss_making":           ("Supplier rugi", "🚨 Risiko tinggi — cek kontrak"),
-    },
-    "customer": {
-        "revenue_deterioration": ("Customer revenue turun", "⚠ Potensi penurunan demand"),
-        "profit_deterioration":  ("Customer profitability turun", "⚠ Customer mungkin kurangi order"),
-        "leverage_increase":     ("Customer tambah utang", "Cek kemampuan bayar"),
-        "cash_flow_weakness":    ("Customer cash flow melemah", "⚠ Risiko pembayaran"),
-        "loss_making":           ("Customer rugi", "🚨 Risiko kredit"),
-    },
-    "distributor": {
-        "revenue_deterioration": ("Distributor revenue turun", "⚠ Risiko channel"),
-        "profit_deterioration":  ("Distributor profitability turun", "Cek komitmen distributor"),
-        "leverage_increase":     ("Distributor tambah utang", "Risiko operasional"),
-        "cash_flow_weakness":    ("Distributor cash flow melemah", "⚠ Risiko channel"),
-        "loss_making":           ("Distributor rugi", "🚨 Risiko channel disruption"),
-    },
-    "partner": {
-        "revenue_deterioration": ("Partner revenue turun", "Cek dampak ke kolaborasi"),
-        "profit_deterioration":  ("Partner profitability turun", "Evaluasi partnership"),
-        "leverage_increase":     ("Partner tambah utang", "Cek exposure"),
-        "cash_flow_weakness":    ("Partner cash flow melemah", "Evaluasi partnership"),
-        "loss_making":           ("Partner rugi", "Tinjau ulang partnership"),
-    },
-    "other": {
-        # default
-        "revenue_deterioration": ("Revenue turun", ""),
-        "profit_deterioration":  ("Profitability turun", ""),
-        "leverage_increase":     ("Leverage naik", ""),
-        "cash_flow_weakness":    ("Cash flow melemah", ""),
-        "loss_making":           ("Rugi", ""),
-    },
-}
+def _load_user_context(conn, org_id: int):
+    """Ambil snapshot user terbaru (kalau ada)."""
+    snapshots = get_org_snapshots(conn, org_id, limit=12)
+    has_data = len(snapshots) > 0
+    latest = snapshots[0] if has_data else None
+    return snapshots, latest
 
 
-def _interpret(rel_type: str, signal_type: str):
-    """Return (headline, relevance) tuple."""
-    mapping = INTERPRETATION.get(rel_type, INTERPRETATION["other"])
-    return mapping.get(signal_type, ("Signal terdeteksi", ""))
+def _load_target_snapshot(conn, symbol: str):
+    """Snapshot terbaru dari monitored company."""
+    row = conn.execute("""
+        SELECT * FROM financial_snapshots
+        WHERE symbol = ?
+        ORDER BY report_date DESC LIMIT 1
+    """, [symbol]).fetchone()
+    return dict(row) if row else None
+
+
+def _load_signals(conn, symbol: str, limit: int = 3):
+    """Signal attention/watch terbaru."""
+    rows = conn.execute("""
+        SELECT * FROM signals
+        WHERE symbol = ? AND severity IN ('attention', 'watch')
+        ORDER BY period_label DESC, severity
+        LIMIT ?
+    """, [symbol, limit]).fetchall()
+    return [dict(r) for r in rows]
 
 
 def org_dashboard(org_id: int):
@@ -73,6 +52,7 @@ def org_dashboard(org_id: int):
 
     rels = get_relationships(conn, org_id)
 
+    # Header
     print("\n" + "=" * 72)
     print(f"  {org['name']}")
     print(f"  {org['sector_slug']} / {org['subsector_slug']} | Tier: {org['size_tier']}")
@@ -83,7 +63,18 @@ def org_dashboard(org_id: int):
         conn.close()
         return
 
-    # Stats
+    # User context
+    user_snapshots, user_latest = _load_user_context(conn, org_id)
+    has_user = user_latest is not None
+    user_revenue = user_latest["revenue"] if has_user else None
+
+    print(f"\n  User financial data: ", end="")
+    if has_user:
+        print(f"✓ {len(user_snapshots)} kuartal (latest revenue: {user_revenue:,})")
+    else:
+        print("✗ belum di-upload (interpretasi generik)")
+
+    # Signal stats
     symbols = [r["company_symbol"] for r in rels]
     placeholders = ",".join("?" * len(symbols))
     stats = conn.execute(f"""
@@ -96,32 +87,29 @@ def org_dashboard(org_id: int):
     print(f"\n  🔴 {counts.get('attention', 0):>3} Attention    "
           f"🟡 {counts.get('watch', 0):>3} Watch")
 
-    # Per relationship type
+    # Group by relationship type
     by_type = {}
     for r in rels:
         by_type.setdefault(r["relationship_type"], []).append(r)
 
-    for rel_type in ["competitor", "supplier", "customer", "distributor", "partner", "other"]:
+    for rel_type in ["competitor", "supplier", "customer",
+                     "distributor", "partner", "other"]:
         if rel_type not in by_type:
             continue
 
         items = by_type[rel_type]
-        print(f"\n  ── {rel_type.upper()} ({len(items)}) " + "─" * (60 - len(rel_type)))
+        print(f"\n  ── {rel_type.upper()} ({len(items)}) "
+              + "─" * (60 - len(rel_type)))
 
         for rel in items:
             sym = rel["company_symbol"]
-            # Ambil signal attention terbaru
-            sigs = conn.execute("""
-                SELECT period_label, signal_type, severity, delta_pct
-                FROM signals
-                WHERE symbol = ? AND severity IN ('attention', 'watch')
-                ORDER BY period_label DESC, severity
-                LIMIT 3
-            """, [sym]).fetchall()
+            sigs = _load_signals(conn, sym, limit=3)
+            target_snap = _load_target_snapshot(conn, sym)
 
-            prio_icon = "🔴" if rel["priority"] == "high" else (
-                "🟡" if rel["priority"] == "medium" else "🟢"
-            )
+            prio_icon = {
+                "high": "🔴", "medium": "🟡", "low": "🟢"
+            }.get(rel["priority"], "⚪")
+
             print(f"\n  {prio_icon} {sym} — {rel['company_name'][:40]}")
 
             if not sigs:
@@ -129,12 +117,27 @@ def org_dashboard(org_id: int):
                 continue
 
             for s in sigs:
-                headline, relevance = _interpret(rel_type, s["signal_type"])
-                delta_str = f"{s['delta_pct']:+.1f}%" if s["delta_pct"] else "n/a"
-                print(f"      · {s['period_label']} | {headline} ({delta_str})")
-                if relevance:
-                    print(f"        → {relevance}")
+                result = interpret(
+                    signal=s,
+                    relationship=rel,
+                    user_snapshot=user_latest,
+                    target_snapshot=target_snap,
+                )
 
+                delta_str = (
+                    f"{s['delta_pct']:+.1f}%" if s["delta_pct"] is not None else "n/a"
+                )
+                conf_icon = {"high": "●", "medium": "◐", "low": "○"}.get(
+                    result["confidence"], "·"
+                )
+
+                print(f"      {conf_icon} {s['period_label']} | "
+                      f"{result['headline']} ({delta_str})")
+                if result.get("relevance"):
+                    print(f"        → {result['relevance']}")
+
+    # Legend
+    print(f"\n  Legend: ● high confidence  ◐ medium  ○ low (no user data)")
     conn.close()
     print()
 
