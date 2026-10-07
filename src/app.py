@@ -2,7 +2,7 @@
 app.py — Rivalytics UI (Streamlit).
 
 Profile perusahaan = Organization (disatukan via CompanyProfile).
-Tab Organizations dihapus — semua diakses via Companies → Profile Perusahaan.
+Tab Reports & AI Explain digabung jadi "Reports & AI".
 """
 import sys
 import io
@@ -11,6 +11,13 @@ from contextlib import redirect_stdout
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+
+# Load environment variables dari .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 import streamlit as st
 import pandas as pd
@@ -124,6 +131,19 @@ def format_delta(v):
     return "n/a" if v is None else f"{v:+.1f}%"
 
 
+def get_relationship_type(org_id: int, symbol: str):
+    """Cari relationship type antara org & symbol. Return None kalau nggak ada."""
+    conn = get_conn()
+    try:
+        row = conn.execute("""
+            SELECT relationship_type FROM relationships
+            WHERE organization_id = ? AND company_symbol = ?
+        """, [org_id, symbol]).fetchone()
+        return row["relationship_type"] if row else None
+    finally:
+        conn.close()
+
+
 # ============================================================
 # LOAD DATA
 # ============================================================
@@ -132,7 +152,7 @@ company_by_symbol = {c["symbol"]: c for c in companies}
 
 
 # ============================================================
-# SIDEBAR — tanpa tab Organizations
+# SIDEBAR
 # ============================================================
 with st.sidebar:
     st.markdown('<div class="brand">◈ Rivalytics</div>', unsafe_allow_html=True)
@@ -145,9 +165,8 @@ with st.sidebar:
         "🔗 Relationships",
         "📥 Ingest Data",
         "📄 CSV Import",
-        "📊 Reports",
+        "📊 Reports & AI",
         "🧠 Interpretation",
-        "🤖 AI Explain",
     ], label_visibility="collapsed")
 
     st.divider()
@@ -286,7 +305,6 @@ elif page == "🏢 Companies":
         st.markdown("**Profile Perusahaan** — kelola profil user")
         st.caption("Ini representasi perusahaan kamu — dipakai buat monitoring & report.")
 
-        # List profiles
         st.markdown("### 📋 Daftar Profile")
         if orgs:
             profile_df = pd.DataFrame(orgs)
@@ -310,7 +328,6 @@ elif page == "🏢 Companies":
 
         st.divider()
 
-        # Create profile
         st.markdown("### ➕ Bikin Profile Baru")
 
         with st.form("create_profile_form"):
@@ -347,7 +364,6 @@ elif page == "🏢 Companies":
                     st.success(f"✓ Profile disimpan (id={org_id})")
                     st.rerun()
 
-        # Edit / Delete
         if orgs:
             st.divider()
             st.markdown("### ✏️ Edit / Hapus Profile")
@@ -581,28 +597,50 @@ elif page == "📄 CSV Import":
 
 
 # ============================================================
-# 📊 REPORTS
+# 📊 REPORTS & AI
 # ============================================================
-elif page == "📊 Reports":
-    st.markdown('<div class="hero"><h1>Reports</h1><p>Ringkasan & laporan detail.</p></div>', unsafe_allow_html=True)
+elif page == "📊 Reports & AI":
+    st.markdown(
+        '<div class="hero"><h1>Reports & AI</h1>'
+        '<p>Ringkasan, laporan detail, dan narasi AI dalam satu tempat.</p></div>',
+        unsafe_allow_html=True,
+    )
 
-    tab1, tab2, tab3 = st.tabs(["📈 Summary", "🏢 Company Detail", "👤 Profile Report + AI"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📈 Summary",
+        "🏢 Company Report",
+        "👤 Profile Report + AI",
+        "🤖 AI Explain",
+    ])
 
+    # ---------- TAB 1: SUMMARY ----------
     with tab1:
-        if st.button("Load Summary", type="primary"):
+        st.markdown("**Ringkasan umum** — overview semua perusahaan yang dimonitor")
+        if st.button("📈 Load Summary", type="primary", key="btn_summary"):
             from core.report import summary
             st.code(run_and_capture(summary), language="text")
 
+    # ---------- TAB 2: COMPANY REPORT ----------
     with tab2:
+        st.markdown("**Company Report** — detail 1 perusahaan")
         if not companies:
             st.info("Belum ada perusahaan.")
         else:
-            symbol = st.selectbox("Company", [c["symbol"] for c in companies], key="report_sym")
-            if st.button("Load Detail", type="primary"):
+            symbol = st.selectbox(
+                "Company",
+                [c["symbol"] for c in companies],
+                key="report_sym",
+                format_func=lambda x: f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
+            )
+            if st.button("📊 Load Company Report", type="primary", key="btn_company"):
                 from core.report import company_detail
                 st.code(run_and_capture(company_detail, symbol), language="text")
 
+    # ---------- TAB 3: PROFILE REPORT + AI ----------
     with tab3:
+        st.markdown("**Profile Report + AI** — laporan per profil")
+        st.caption("Isi AI symbol → otomatis generate AI explanation (relationship diambil dari DB).")
+
         if not orgs:
             st.info("Belum ada profile perusahaan.")
         else:
@@ -610,28 +648,77 @@ elif page == "📊 Reports":
             selected = st.selectbox("Profile", list(org_options.keys()), key="report_org")
             org_id = org_options[selected]
 
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                use_ai = st.checkbox("Include AI explanation")
-            with col2:
-                ai_symbol = st.text_input("AI symbol (opsional)", placeholder="ADRO")
+            ai_symbol = st.text_input(
+                "AI symbol (opsional)",
+                placeholder="ADRO",
+                help="Kosongin kalau nggak mau AI explanation",
+            ).strip().upper()
 
-            if st.button("Load Report", type="primary"):
+            if st.button("👤 Load Profile Report", type="primary", key="btn_org"):
                 from core.report_org import org_dashboard
 
-                if use_ai and ai_symbol:
-                    st.markdown(f"### Report: {selected}")
-                    st.code(run_and_capture(org_dashboard, org_id), language="text")
+                st.markdown(f"### 📊 Report: {selected}")
+                st.code(run_and_capture(org_dashboard, org_id), language="text")
 
-                    st.markdown(f"### 🤖 AI: {ai_symbol.upper()}")
+                if ai_symbol:
+                    st.markdown(f"### 🤖 AI: {ai_symbol}")
+
+                    # Auto-lookup relationship dari DB
+                    rel_type = get_relationship_type(org_id, ai_symbol)
+                    if rel_type:
+                        st.caption(f"Relationship: **{rel_type}**")
+                    else:
+                        rel_type = "other"
+                        st.caption(f"⚠ {ai_symbol} belum ada di relationship. Pakai default: **other**")
+
                     with st.spinner("AI thinking..."):
                         try:
-                            result = explain(ai_symbol.upper(), relationship_type="competitor")
+                            result = explain(ai_symbol, relationship_type=rel_type)
                             st.markdown(result)
                         except Exception as e:
                             st.error(f"Error: {e}")
-                else:
-                    st.code(run_and_capture(org_dashboard, org_id), language="text")
+
+    # ---------- TAB 4: AI EXPLAIN ----------
+    with tab4:
+        st.markdown("**AI Explain** — generate narasi via LLM")
+        st.caption("Relationship diambil otomatis dari database. Buat kelola relationship, buka tab **🔗 Relationships**.")
+
+        if not companies:
+            st.info("Belum ada perusahaan.")
+        elif not orgs:
+            st.info("Belum ada profile perusahaan.")
+        else:
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+                selected_org = st.selectbox("Profile", list(org_options.keys()), key="ai_org")
+                org_id = org_options[selected_org]
+            with c2:
+                symbol = st.selectbox(
+                    "Company",
+                    [c["symbol"] for c in companies],
+                    key="ai_sym",
+                    format_func=lambda x: f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
+                )
+            with c3:
+                provider = st.selectbox("Provider", ["groq", "openai"], key="ai_provider")
+
+            # Auto-lookup relationship
+            rel_type = get_relationship_type(org_id, symbol)
+            if rel_type:
+                st.info(f"🔗 Relationship: **{rel_type}**")
+            else:
+                st.warning(f"⚠ {symbol} belum ada di relationship untuk profile ini. Pakai default: **other**")
+                rel_type = "other"
+
+            if st.button("🤖 Generate Explanation", type="primary", key="btn_ai"):
+                with st.spinner("Menghubungi LLM..."):
+                    try:
+                        result = explain(symbol, relationship_type=rel_type, provider=provider)
+                        st.markdown("### Hasil")
+                        st.markdown(result)
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
 
 # ============================================================
@@ -694,33 +781,3 @@ elif page == "🧠 Interpretation":
             st.markdown("### 🎯 Relative interpretation")
             st.caption("vs perusahaan pilihan kamu")
             st.info(relative)
-
-
-# ============================================================
-# 🤖 AI EXPLAIN
-# ============================================================
-elif page == "🤖 AI Explain":
-    st.markdown('<div class="hero"><h1>AI Explanation</h1><p>Narasi mendalam via LLM.</p></div>', unsafe_allow_html=True)
-
-    if not companies:
-        st.info("Belum ada perusahaan.")
-    else:
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            symbol = st.selectbox("Company", [c["symbol"] for c in companies])
-        with c2:
-            rel_type = st.selectbox(
-                "Relationship",
-                ["competitor", "supplier", "customer", "distributor", "partner", "other"],
-            )
-        with c3:
-            provider = st.selectbox("Provider", ["groq", "openai"])
-
-        if st.button("🤖 Generate Explanation", type="primary"):
-            with st.spinner("Menghubungi LLM..."):
-                try:
-                    result = explain(symbol, relationship_type=rel_type, provider=provider)
-                    st.markdown("### Hasil")
-                    st.markdown(result)
-                except Exception as e:
-                    st.error(f"Error: {e}")
