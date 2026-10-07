@@ -9,13 +9,13 @@ import io
 from pathlib import Path
 from contextlib import redirect_stdout
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 # Load environment variables dari .env
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(ROOT.parent / ".env") 
 except ImportError:
     pass
 
@@ -42,7 +42,7 @@ from discovery.profile import (
 )
 from core.csv_import import import_csv
 from core.ai_explain import explain
-from interpretation import (
+from UI.interpretation import (
     interpret_general,
     interpret_relative,
 )
