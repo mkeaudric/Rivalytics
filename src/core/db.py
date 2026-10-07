@@ -123,6 +123,19 @@ CREATE TABLE IF NOT EXISTS org_snapshots (
     FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS ingest_tracker (
+    symbol              TEXT PRIMARY KEY,
+    last_ingest_at      TEXT,
+    last_check_at       TEXT,
+    latest_in_db        TEXT,
+    latest_available    TEXT,
+    pending_update      INTEGER DEFAULT 0,
+    created_at          TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingest_tracker_check
+    ON ingest_tracker(last_check_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_org_snap_org
     ON org_snapshots(organization_id, period_label DESC);
 
@@ -137,6 +150,7 @@ CREATE INDEX IF NOT EXISTS idx_snap_symbol_date
 
 CREATE INDEX IF NOT EXISTS idx_signals_symbol
     ON signals(symbol, detected_at DESC);
+    
 """
 
 

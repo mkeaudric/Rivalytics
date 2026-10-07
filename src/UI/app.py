@@ -57,6 +57,13 @@ from interpretation import (
     interpret_relative,
 )
 
+from monitoring.weekly import (
+    check_updates,
+    ingest_selected,
+    get_pending_summary,
+    get_monitored_symbols,
+    should_check_now,
+)
 
 # ============================================================
 # PAGE CONFIG + STYLE
@@ -227,6 +234,7 @@ with st.sidebar:
         "🏢 Companies",
         "🔔 Signals",
         "🔗 Relationships",
+        "📅 Weekly Update",
         "📥 Ingest Data",
         "📄 CSV Import",
         "📊 Reports & AI",
@@ -318,39 +326,130 @@ elif page == "🏢 Companies":
         else:
             st.info("Belum ada perusahaan. Ingest data dulu di tab **Ingest Data**.")
 
-    # ---------- TAB 2: DISCOVERY ----------
+        # ---------- TAB 2: DISCOVERY ----------
     with tab2:
         st.markdown("**Discovery** — cari kompetitor/supplier kandidat")
+        st.caption("Discovery itu cheap (gratis). Ingest baru bayar 2 credits/company.")
+
         try:
-            from discovery.discovery import discover_competitors
+            from discovery.discovery import discover_competitors, discover_suppliers
             from core.taxonomy import load_or_fetch_taxonomy
             from core.sectors_client import SectorsClient
 
-            c1, c2, c3 = st.columns(3)
+            # Input
+            st.markdown("#### 🔍 Filter Pencarian")
+            c1, c2 = st.columns(2)
             with c1:
-                sub_slug = st.text_input("Subsector slug", value="food-beverage")
+                mode = st.radio("Mode", ["Competitor", "Supplier"], horizontal=True)
+                sub_slug = st.text_input("Subsector slug", value="food-beverage",
+                                        help="Contoh: food-beverage, banks, coal")
             with c2:
-                tier = st.selectbox("Size tier", ["micro", "small", "medium", "large"], index=2)
-            with c3:
-                limit = st.number_input("Limit", min_value=1, max_value=50, value=8)
+                tier = st.selectbox("Size tier (market cap)",
+                                    ["micro", "small", "medium", "large"], index=2)
+                limit = st.number_input("Jumlah kandidat", min_value=1, max_value=100, value=20)
 
-            if st.button("🔍 Discover Competitors", type="primary"):
-                with st.spinner("Mencari..."):
+            c1, c2 = st.columns(2)
+            with c1:
+                only_growing = st.checkbox("Hanya yang revenue-nya tumbuh", value=False)
+            with c2:
+                sort_by = st.selectbox("Sort by", ["-market_cap", "market_cap", "symbol"])
+
+            # Preview & Search
+            if st.button("🔍 Discover Sekarang", type="primary"):
+                with st.spinner("Cari kandidat (cheap)..."):
                     try:
                         client = SectorsClient()
                         taxonomy = load_or_fetch_taxonomy(client)
+
                         profile = CompanyProfile(
                             name="User",
                             sector_slug="consumer-non-cyclicals",
                             subsector_slug=sub_slug,
                             size_tier=SizeTier(tier),
                         )
-                        comps = discover_competitors(profile, client, taxonomy, limit=limit)
-                        st.success(f"Ditemukan {len(comps)} kandidat")
-                        if comps:
-                            st.dataframe(pd.DataFrame(comps), use_container_width=True, hide_index=True)
+
+                        if mode == "Competitor":
+                            comps = discover_competitors(
+                                profile, client, taxonomy,
+                                limit=limit, only_growing=only_growing
+                            )
+                        else:
+                            comps = discover_suppliers(
+                                profile, client, taxonomy,
+                                upstream_subsectors=[sub_slug],
+                                limit=limit
+                            )
+
+                        st.session_state["discovery_results"] = {
+                            "data": comps,
+                            "mode": mode,
+                            "sub_slug": sub_slug,
+                        }
+                        st.toast(f"✓ {len(comps)} kandidat ditemukan", icon="✅")
                     except Exception as e:
                         st.error(f"Error: {e}")
+
+            # Hasil
+            if "discovery_results" in st.session_state:
+                info = st.session_state["discovery_results"]
+                comps = info["data"]
+
+                st.divider()
+                st.markdown(f"### 📋 Hasil: {len(comps)} kandidat")
+
+                if not comps:
+                    st.warning("Nggak ada kandidat. Coba ubah filter.")
+                else:
+                    # Tabel
+                    df = pd.DataFrame(comps)
+                    display_cols = [c for c in ["symbol_clean", "company_name", "sector", "sub_sector", "market_cap"] if c in df.columns]
+                    st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
+
+                    # Bulk action
+                    st.divider()
+                    st.markdown("### ➕ Tambah ke Monitoring")
+
+                    if not orgs:
+                        st.warning("Bikin profile dulu di **Companies → Profile Perusahaan**.")
+                    else:
+                        org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+                        selected_org = st.selectbox("Profile", list(org_options.keys()), key="disc_org")
+                        org_id = org_options[selected_org]
+
+                        # Multi-select
+                        symbols = [c.get("symbol_clean") or c.get("symbol", "").replace(".JK", "") for c in comps]
+                        selected_symbols = st.multiselect(
+                            "Pilih perusahaan buat ditambah ke monitoring",
+                            symbols,
+                            default=symbols[:5],
+                        )
+
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            rel_type = st.selectbox("Relationship type",
+                                ["competitor", "supplier", "customer", "distributor", "partner", "other"],
+                                index=0 if info["mode"] == "Competitor" else 1,
+                                key="disc_reltype")
+                        with c2:
+                            priority = st.selectbox("Priority", ["high", "medium", "low"], index=1, key="disc_priority")
+
+                        if st.button(f"➕ Tambah {len(selected_symbols)} ke Monitoring", type="primary"):
+                            conn = get_conn()
+                            added = 0
+                            skipped = 0
+                            for sym in selected_symbols:
+                                if add_relationship(conn, org_id, sym, rel_type, priority):
+                                    added += 1
+                                else:
+                                    skipped += 1
+                            conn.close()
+
+                            st.toast(f"✓ {added} ditambah, {skipped} skip (udah ada)", icon="✅")
+                            st.success(f"✓ {added} berhasil ditambah")
+                            if skipped:
+                                st.info(f"⚠ {skipped} sudah ada di monitoring")
+                            st.rerun()
+
         except ImportError as e:
             st.warning(f"Module belum ada: {e}")
 
@@ -570,6 +669,130 @@ elif page == "🔗 Relationships":
                         st.rerun()
             else:
                 st.info("Belum ada relationship.")
+
+
+# ============================================================
+# 📅 WEEKLY UPDATE
+# ============================================================
+elif page == "📅 Weekly Update":
+    st.markdown(
+        '<div class="hero"><h1>Weekly Intelligence</h1>'
+        '<p>Cek update data baru tanpa boros API — user konfirmasi dulu.</p></div>',
+        unsafe_allow_html=True,
+    )
+
+    # Status
+    summary = get_pending_summary()
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Monitored", summary["total_monitored"])
+    c2.metric("Pending Updates", summary["pending_updates"])
+    last_check_str = summary["last_check"][:16] if summary["last_check"] else "Belum pernah"
+    c3.metric("Last Check", last_check_str)
+
+    if summary["should_check"]:
+        st.warning("⏰ Udah lebih dari 7 hari sejak cek terakhir. Waktunya cek update!")
+    else:
+        st.info("✅ Cek terakhir masih dalam 7 hari terakhir.")
+
+    st.divider()
+
+    # Cek Update
+    st.markdown("### 🔍 Step 1: Cek Update")
+    st.caption("Cek metadata (cheap). Ini nggak fetch data finansial, cuma cek apakah ada kuartal baru.")
+
+    if not orgs:
+        st.warning("Belum ada profile. Bikin dulu di Companies → Profile Perusahaan.")
+    else:
+        org_options = {"Semua profile": None}
+        org_options.update({f"{o['name']} (id={o['id']})": o["id"] for o in orgs})
+        selected_org = st.selectbox("Profile", list(org_options.keys()), key="weekly_org")
+        selected_org_id = org_options[selected_org]
+
+        if st.button("🔍 Cek Update Sekarang", type="primary"):
+            with st.spinner("Cek metadata (cheap)..."):
+                try:
+                    results = check_updates(org_id=selected_org_id)
+                    st.session_state["weekly_results"] = results
+                    st.toast(f"✓ Cek selesai untuk {len(results)} perusahaan", icon="✅")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+    st.divider()
+
+    # Hasil cek
+    if "weekly_results" in st.session_state:
+        results = st.session_state["weekly_results"]
+
+        if not results:
+            st.info("Belum ada monitored company. Tambah relasi dulu di tab 🔗 Relationships.")
+        else:
+            st.markdown("### 📋 Step 2: Review Hasil")
+
+            # Split
+            with_update = [r for r in results if r.get("has_update")]
+            no_update = [r for r in results if not r.get("has_update") and not r.get("error")]
+            errors = [r for r in results if r.get("error")]
+
+            if with_update:
+                st.success(f"🎯 **{len(with_update)} perusahaan** punya data baru — siap di-ingest!")
+
+                st.markdown("**Pilih yang mau di-ingest** (2 credits per perusahaan):")
+
+                selected_symbols = []
+                for r in with_update:
+                    col1, col2, col3, col4 = st.columns([0.5, 2, 2, 2])
+                    with col1:
+                        checked = st.checkbox("", key=f"chk_{r['symbol']}", label_visibility="collapsed")
+                    with col2:
+                        st.markdown(f"**{r['symbol']}**")
+                    with col3:
+                        st.caption(f"DB: {r['latest_in_db']}")
+                    with col4:
+                        st.caption(f"API: {r['latest_available']}")
+                    if checked:
+                        selected_symbols.append(r["symbol"])
+
+                if selected_symbols:
+                    total_credits = len(selected_symbols) * 2
+                    st.warning(f"⚠️ **Estimasi biaya: {total_credits} credits** untuk {len(selected_symbols)} perusahaan")
+
+                    if st.button(f"🚀 Ingest {len(selected_symbols)} yang Dipilih", type="primary"):
+                        with st.spinner(f"Ingest {len(selected_symbols)} perusahaan..."):
+                            try:
+                                result = ingest_selected(selected_symbols)
+                                st.toast(
+                                    f"✓ {len(result['success'])} sukses, {len(result['failed'])} gagal",
+                                    icon="✅"
+                                )
+                                st.success(f"✓ Sukses: {len(result['success'])} perusahaan")
+                                if result["failed"]:
+                                    st.error(f"✗ Gagal: {len(result['failed'])} perusahaan")
+                                    for f in result["failed"]:
+                                        st.text(f"  {f['symbol']}: {f['error']}")
+                                st.info(f"Credits terpakai: **{result['total_credits_used']}**")
+                                st.session_state.pop("weekly_results", None)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                else:
+                    st.caption("Centang perusahaan di atas buat di-ingest.")
+
+            else:
+                st.info("✓ Nggak ada update baru. Semua data udah up-to-date.")
+
+            if no_update:
+                with st.expander(f"✅ {len(no_update)} perusahaan up-to-date"):
+                    for r in no_update:
+                        st.text(f"  {r['symbol']}: {r['latest_in_db']}")
+
+            if errors:
+                with st.expander(f"⚠️ {len(errors)} error"):
+                    for r in errors:
+                        st.text(f"  {r['symbol']}: {r['error']}")
+
+    st.divider()
+    st.caption("💡 **Tips:** Cek update ini CHEAP (cuma metadata). Ingest baru bayar 2 credits per perusahaan.")
 
 
 # ============================================================
