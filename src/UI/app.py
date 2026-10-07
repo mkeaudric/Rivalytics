@@ -1,21 +1,31 @@
 """
 app.py — Rivalytics UI (Streamlit).
 
-Profile perusahaan = Organization (disatukan via CompanyProfile).
-Tab Reports & AI Explain digabung jadi "Reports & AI".
+Letak: src/UI/app.py
+ROOT = src/ (parent dari UI/)
+
+Perbaikan:
+- Notif toast saat nambah relasi
+- Hapus symbol di Profile Report (useless)
+- Settings page buat API keys (Sectors, Groq, OpenAI)
+- Interpretation bandingin vs user sendiri (butuh CSV)
 """
 import sys
 import io
+import os
+import re
 from pathlib import Path
 from contextlib import redirect_stdout
 
+# UI/ → parent = src/
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-# Load environment variables dari .env
+# Load environment variables dari .env (di root project)
+ENV_PATH = ROOT.parent / ".env"
 try:
     from dotenv import load_dotenv
-    load_dotenv(ROOT.parent / ".env") 
+    load_dotenv(ENV_PATH)
 except ImportError:
     pass
 
@@ -23,7 +33,7 @@ import streamlit as st
 import pandas as pd
 
 # ============================================================
-# CORE IMPORTS (sesuai struktur folder)
+# CORE IMPORTS
 # ============================================================
 from core.db import (
     get_conn,
@@ -40,9 +50,9 @@ from discovery.profile import (
     list_profiles,
     delete_profile,
 )
-from core.csv_import import import_csv
+from core.csv_import import import_csv, get_org_snapshots
 from core.ai_explain import explain
-from UI.interpretation import (
+from interpretation import (
     interpret_general,
     interpret_relative,
 )
@@ -60,7 +70,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    #MainMenu, footer, header {visibility: hidden;}
+    #MainMenu, footer {visibility: hidden;}
+    header[data-testid="stHeader"] {background: transparent;}
     .block-container {padding-top: 2rem; padding-bottom: 3rem; max-width: 1500px;}
     [data-testid="stSidebar"] {border-right: 1px solid rgba(128,128,128,.18);}
     .brand {font-size: 1.55rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: .15rem;}
@@ -96,7 +107,6 @@ st.markdown("""
 # HELPERS
 # ============================================================
 def run_and_capture(func, *args, **kwargs) -> str:
-    """Panggil fungsi yang print() ke stdout, tangkap output."""
     buf = io.StringIO()
     try:
         with redirect_stdout(buf):
@@ -107,7 +117,6 @@ def run_and_capture(func, *args, **kwargs) -> str:
 
 
 def load_all():
-    """Load semua data dari DB."""
     conn = get_conn()
     try:
         companies = [dict(r) for r in conn.execute("SELECT * FROM companies").fetchall()]
@@ -132,7 +141,6 @@ def format_delta(v):
 
 
 def get_relationship_type(org_id: int, symbol: str):
-    """Cari relationship type antara org & symbol. Return None kalau nggak ada."""
     conn = get_conn()
     try:
         row = conn.execute("""
@@ -142,6 +150,62 @@ def get_relationship_type(org_id: int, symbol: str):
         return row["relationship_type"] if row else None
     finally:
         conn.close()
+
+
+def get_org_snapshots_for(org_id: int):
+    """Ambil org_snapshots untuk 1 profile."""
+    conn = get_conn()
+    try:
+        return get_org_snapshots(conn, org_id, limit=12)
+    finally:
+        conn.close()
+
+
+def compute_user_delta(user_snapshots, metric, period_label):
+    """Hitung YoY delta user's metric untuk period tertentu."""
+    m = re.match(r"Q(\d)-(\d{4})", period_label)
+    if not m:
+        return None
+    q, year = int(m.group(1)), int(m.group(2))
+    prev_label = f"Q{q}-{year - 1}"
+
+    current = next((s for s in user_snapshots if s["period_label"] == period_label), None)
+    previous = next((s for s in user_snapshots if s["period_label"] == prev_label), None)
+
+    if not current or not previous:
+        return None
+
+    cur_val = current.get(metric)
+    prev_val = previous.get(metric)
+
+    if cur_val is None or prev_val is None or prev_val == 0:
+        return None
+    if prev_val < 0:
+        return None
+
+    delta = (cur_val - prev_val) / abs(prev_val) * 100
+    return round(delta, 2)
+
+
+def save_env_var(key: str, value: str):
+    """Simpen/update key di .env file & os.environ."""
+    lines = []
+    if ENV_PATH.exists():
+        lines = ENV_PATH.read_text(encoding="utf-8").splitlines()
+
+    lines = [l for l in lines if not l.startswith(f"{key}=")]
+    if value:
+        lines.append(f"{key}={value}")
+
+    ENV_PATH.write_text("\n".join(lines), encoding="utf-8")
+    if value:
+        os.environ[key] = value
+    elif key in os.environ:
+        del os.environ[key]
+
+
+def get_env_var(key: str) -> str:
+    return os.environ.get(key, "")
 
 
 # ============================================================
@@ -167,6 +231,7 @@ with st.sidebar:
         "📄 CSV Import",
         "📊 Reports & AI",
         "🧠 Interpretation",
+        "⚙️ Settings",
     ], label_visibility="collapsed")
 
     st.divider()
@@ -228,14 +293,13 @@ if page == "🏠 Dashboard":
 
 
 # ============================================================
-# 🏢 COMPANIES (termasuk Profile Perusahaan)
+# 🏢 COMPANIES
 # ============================================================
 elif page == "🏢 Companies":
     st.markdown('<div class="hero"><h1>Companies & Profiles</h1><p>Kelola data perusahaan & profil user.</p></div>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         "📋 List Companies",
-        "📊 Company Detail",
         "🔍 Discovery",
         "👤 Profile Perusahaan",
     ])
@@ -250,22 +314,12 @@ elif page == "🏢 Companies":
                 df = df[df["symbol"].str.lower().str.contains(q) | df["name"].str.lower().str.contains(q)]
             st.caption(f"{len(df)} dari {len(companies)} perusahaan")
             st.dataframe(df, use_container_width=True, hide_index=True)
+            st.caption("💡 Mau lihat laporan detail perusahaan? Buka tab **📊 Reports & AI → Company Report**.")
         else:
             st.info("Belum ada perusahaan. Ingest data dulu di tab **Ingest Data**.")
 
-    # ---------- TAB 2: COMPANY DETAIL ----------
+    # ---------- TAB 2: DISCOVERY ----------
     with tab2:
-        if not companies:
-            st.info("Belum ada perusahaan.")
-        else:
-            symbol = st.selectbox("Pilih company", [c["symbol"] for c in companies])
-            if st.button("Lihat Detail", type="primary"):
-                from core.report import company_detail
-                out = run_and_capture(company_detail, symbol)
-                st.code(out, language="text")
-
-    # ---------- TAB 3: DISCOVERY ----------
-    with tab3:
         st.markdown("**Discovery** — cari kompetitor/supplier kandidat")
         try:
             from discovery.discovery import discover_competitors
@@ -300,8 +354,8 @@ elif page == "🏢 Companies":
         except ImportError as e:
             st.warning(f"Module belum ada: {e}")
 
-    # ---------- TAB 4: PROFILE PERUSAHAAN ----------
-    with tab4:
+    # ---------- TAB 3: PROFILE PERUSAHAAN ----------
+    with tab3:
         st.markdown("**Profile Perusahaan** — kelola profil user")
         st.caption("Ini representasi perusahaan kamu — dipakai buat monitoring & report.")
 
@@ -493,10 +547,12 @@ elif page == "🔗 Relationships":
                         added = add_relationship(conn, org_id, symbol, rel_type, priority)
                         conn.close()
                         if added:
+                            st.toast(f"✓ {symbol} → {rel_type} [{priority}] berhasil ditambahkan!", icon="✅")
                             st.success(f"✓ {symbol} → {rel_type} [{priority}]")
                             st.rerun()
                         else:
-                            st.warning(f"⚠ {symbol} sudah ada")
+                            st.toast(f"⚠ {symbol} sudah ada", icon="⚠️")
+                            st.warning(f"⚠ {symbol} sudah ada (skip)")
 
         with tab3:
             conn = get_conn()
@@ -509,6 +565,7 @@ elif page == "🔗 Relationships":
                     ok = remove_relationship(conn, org_id, to_remove)
                     conn.close()
                     if ok:
+                        st.toast(f"✓ {to_remove} dihapus", icon="🗑️")
                         st.success(f"✓ {to_remove} dihapus")
                         st.rerun()
             else:
@@ -520,6 +577,10 @@ elif page == "🔗 Relationships":
 # ============================================================
 elif page == "📥 Ingest Data":
     st.markdown('<div class="hero"><h1>Ingest Data</h1><p>Ambil data dari Sectors API.</p></div>', unsafe_allow_html=True)
+
+    # Cek Sectors API key
+    if not get_env_var("SECTORS_API_KEY"):
+        st.warning("⚠ SECTORS_API_KEY belum diset. Buka **⚙️ Settings** dulu.")
 
     try:
         from monitoring.ingest import Ingestor
@@ -585,6 +646,7 @@ elif page == "📄 CSV Import":
             if st.button("📥 Import", type="primary"):
                 try:
                     result = import_csv(org_id, str(tmp))
+                    st.toast(f"✓ {result['inserted']} inserted, {result['updated']} updated", icon="✅")
                     st.success(f"✓ {result['inserted']} inserted, {result['updated']} updated")
                     if result["errors"]:
                         st.warning(f"⚠ {len(result['errors'])} error(s)")
@@ -609,7 +671,7 @@ elif page == "📊 Reports & AI":
     tab1, tab2, tab3, tab4 = st.tabs([
         "📈 Summary",
         "🏢 Company Report",
-        "👤 Profile Report + AI",
+        "👤 Profile Report",
         "🤖 AI Explain",
     ])
 
@@ -636,11 +698,9 @@ elif page == "📊 Reports & AI":
                 from core.report import company_detail
                 st.code(run_and_capture(company_detail, symbol), language="text")
 
-    # ---------- TAB 3: PROFILE REPORT + AI ----------
+    # ---------- TAB 3: PROFILE REPORT ----------
     with tab3:
-        st.markdown("**Profile Report + AI** — laporan per profil")
-        st.caption("Isi AI symbol → otomatis generate AI explanation (relationship diambil dari DB).")
-
+        st.markdown("**Profile Report** — laporan per profil")
         if not orgs:
             st.info("Belum ada profile perusahaan.")
         else:
@@ -648,40 +708,18 @@ elif page == "📊 Reports & AI":
             selected = st.selectbox("Profile", list(org_options.keys()), key="report_org")
             org_id = org_options[selected]
 
-            ai_symbol = st.text_input(
-                "AI symbol (opsional)",
-                placeholder="ADRO",
-                help="Kosongin kalau nggak mau AI explanation",
-            ).strip().upper()
-
             if st.button("👤 Load Profile Report", type="primary", key="btn_org"):
                 from core.report_org import org_dashboard
-
-                st.markdown(f"### 📊 Report: {selected}")
                 st.code(run_and_capture(org_dashboard, org_id), language="text")
-
-                if ai_symbol:
-                    st.markdown(f"### 🤖 AI: {ai_symbol}")
-
-                    # Auto-lookup relationship dari DB
-                    rel_type = get_relationship_type(org_id, ai_symbol)
-                    if rel_type:
-                        st.caption(f"Relationship: **{rel_type}**")
-                    else:
-                        rel_type = "other"
-                        st.caption(f"⚠ {ai_symbol} belum ada di relationship. Pakai default: **other**")
-
-                    with st.spinner("AI thinking..."):
-                        try:
-                            result = explain(ai_symbol, relationship_type=rel_type)
-                            st.markdown(result)
-                        except Exception as e:
-                            st.error(f"Error: {e}")
 
     # ---------- TAB 4: AI EXPLAIN ----------
     with tab4:
         st.markdown("**AI Explain** — generate narasi via LLM")
         st.caption("Relationship diambil otomatis dari database. Buat kelola relationship, buka tab **🔗 Relationships**.")
+
+        # Cek Groq API key
+        if not get_env_var("GROQ_API_KEY") and not get_env_var("OPENAI_API_KEY"):
+            st.warning("⚠ API key belum diset. Buka **⚙️ Settings** dulu.")
 
         if not companies:
             st.info("Belum ada perusahaan.")
@@ -703,7 +741,6 @@ elif page == "📊 Reports & AI":
             with c3:
                 provider = st.selectbox("Provider", ["groq", "openai"], key="ai_provider")
 
-            # Auto-lookup relationship
             rel_type = get_relationship_type(org_id, symbol)
             if rel_type:
                 st.info(f"🔗 Relationship: **{rel_type}**")
@@ -725,31 +762,56 @@ elif page == "📊 Reports & AI":
 # 🧠 INTERPRETATION
 # ============================================================
 elif page == "🧠 Interpretation":
-    st.markdown('<div class="hero"><h1>Interpretation</h1><p>Bandingkan signal vs peer & vs user.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero"><h1>Interpretation</h1><p>Bandingkan signal target vs peer & vs perusahaan kamu.</p></div>', unsafe_allow_html=True)
 
     if not signals:
         st.info("Belum ada signal.")
+    elif not orgs:
+        st.warning("Belum ada profile perusahaan. Bikin dulu di **Companies → Profile Perusahaan**.")
     else:
+        # Step 1: pilih profile (user)
+        st.markdown("### 1️⃣ Pilih Profile (Perusahaan Kamu)")
+        org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+        selected_org = st.selectbox("Profile", list(org_options.keys()), key="interp_org")
+        org_id = org_options[selected_org]
+
+        # Cek apakah user punya CSV data
+        user_snapshots = get_org_snapshots_for(org_id)
+        has_csv = len(user_snapshots) > 0
+
+        if not has_csv:
+            st.error("⚠ **Belum ada data CSV** untuk profile ini. Upload dulu di tab **📄 CSV Import** biar bisa bandingin.")
+            st.stop()
+        else:
+            st.success(f"✓ Data CSV tersedia: **{len(user_snapshots)} kuartal**")
+
+        st.divider()
+
+        # Step 2: pilih target company + signal
+        st.markdown("### 2️⃣ Pilih Target Company")
         all_symbols = sorted({s["symbol"] for s in signals})
+
         c1, c2 = st.columns(2)
         with c1:
             symbol = st.selectbox(
                 "Company",
                 all_symbols,
+                key="interp_sym",
                 format_func=lambda x: f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
             )
         with c2:
             company_signals = [s for s in signals if s["symbol"] == symbol]
             periods = sorted({s["period_label"] for s in company_signals}, reverse=True)
-            period = st.selectbox("Period", periods)
+            period = st.selectbox("Period", periods, key="interp_period")
 
         period_signals = [s for s in company_signals if s["period_label"] == period]
         types = sorted({s["signal_type"] for s in period_signals})
-        sig_type = st.selectbox("Signal type", types, format_func=signal_label)
+        sig_type = st.selectbox("Signal type", types, format_func=signal_label, key="interp_sig")
         signal = next(s for s in period_signals if s["signal_type"] == sig_type)
 
         st.divider()
 
+        # Info signal
         company = company_by_symbol.get(symbol, {})
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Company", symbol)
@@ -761,23 +823,153 @@ elif page == "🧠 Interpretation":
 
         st.divider()
 
-        user_options = ["Tidak dibandingkan"] + [s for s in all_symbols if s != symbol]
-        user_symbol = st.selectbox(
-            "Perusahaan pembanding",
-            user_options,
-            format_func=lambda x: x if x == "Tidak dibandingkan" else f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
-        )
-        user_symbol = None if user_symbol == "Tidak dibandingkan" else user_symbol
+        # Interpretasi
+        st.markdown("### 3️⃣ Hasil Interpretasi")
 
+        # General — vs peer
         general = interpret_general(symbol, signal, companies, signals)
-        relative = interpret_relative(symbol, signal, user_symbol, signals)
+
+        # Relative — vs user's OWN data (dari CSV)
+        user_delta = compute_user_delta(user_snapshots, signal["metric"], signal["period_label"])
+
+        if user_delta is None:
+            relative = (
+                f"⚠ **Data kamu tidak cukup** untuk dibandingkan.\n\n"
+                f"Signal: **{signal['signal_type']}** ({format_delta(signal['delta_pct'])}) "
+                f"di periode **{signal['period_label']}**.\n\n"
+                f"Kamu perlu data kuartal **{signal['period_label']}** dan "
+                f"**{signal['period_label'].split('-')[0]}{int(signal['period_label'].split('-')[1]) - 1}** "
+                f"untuk perbandingan YoY."
+            )
+        else:
+            diff = signal["delta_pct"] - user_delta
+            if signal["signal_type"] in ("revenue_deterioration", "profit_deterioration", "cash_flow_weakness"):
+                if diff < -10:
+                    verdict = f"{symbol} **jauh lebih buruk** dari kamu. Ini **peluang** ambil market share."
+                elif diff > 10:
+                    verdict = f"{symbol} **lebih baik** dari kamu. Waspada."
+                else:
+                    verdict = f"{symbol} sejalan dengan kamu."
+            else:
+                verdict = f"{symbol} berbeda dari kamu."
+
+            relative = (
+                f"**{symbol}**: **{signal['delta_pct']:+.1f}%** YoY ({signal['metric']})\n\n"
+                f"**Kamu** ({selected_org}): **{user_delta:+.1f}%** YoY (metric yang sama)\n\n"
+                f"→ {verdict}"
+            )
 
         a, b = st.columns(2)
         with a:
-            st.markdown("### 🌐 General interpretation")
-            st.caption("vs peer dalam subsector yang sama")
+            st.markdown("### 🌐 vs Peer")
+            st.caption("Bandingin dengan rata-rata peer di subsector yang sama")
             st.info(general)
         with b:
-            st.markdown("### 🎯 Relative interpretation")
-            st.caption("vs perusahaan pilihan kamu")
+            st.markdown("### 🎯 vs Kamu")
+            st.caption("Bandingin dengan data finansial kamu sendiri (dari CSV)")
             st.info(relative)
+
+
+# ============================================================
+# ⚙️ SETTINGS
+# ============================================================
+elif page == "⚙️ Settings":
+    st.markdown('<div class="hero"><h1>Settings</h1><p>Atur API keys untuk Sectors & LLM provider.</p></div>', unsafe_allow_html=True)
+
+    st.info(f"📍 Settings disimpan di: `{ENV_PATH}`")
+
+    # Sectors
+    st.markdown("### 🌐 Sectors API")
+    st.caption("Dibutuhin buat ingest data perusahaan & discovery.")
+
+    sectors_current = get_env_var("SECTORS_API_KEY")
+    sectors_status = "✅ Ada" if sectors_current else "❌ Belum diset"
+    st.markdown(f"**Status:** {sectors_status}")
+
+    with st.form("sectors_form"):
+        sectors_key = st.text_input(
+            "Sectors API Key",
+            value=sectors_current,
+            type="password",
+            placeholder="240d3ca6...",
+        )
+        col_a, col_b = st.columns([1, 1])
+        if col_a.form_submit_button("💾 Simpan Sectors Key", type="primary"):
+            save_env_var("SECTORS_API_KEY", sectors_key.strip())
+            st.toast("✓ Sectors API Key disimpan", icon="✅")
+            st.success("✓ Sectors API Key disimpan")
+            st.rerun()
+        if col_b.form_submit_button("🗑️ Hapus"):
+            save_env_var("SECTORS_API_KEY", "")
+            st.toast("✓ Sectors API Key dihapus", icon="🗑️")
+            st.success("✓ Sectors API Key dihapus")
+            st.rerun()
+
+    st.divider()
+
+    # Groq
+    st.markdown("### 🤖 Groq API")
+    st.caption("Dibutuhin buat AI explanation (gratis, cepat).")
+    st.markdown("🔗 Daftar: [console.groq.com](https://console.groq.com/keys)")
+
+    groq_current = get_env_var("GROQ_API_KEY")
+    groq_status = "✅ Ada" if groq_current else "❌ Belum diset"
+    st.markdown(f"**Status:** {groq_status}")
+
+    with st.form("groq_form"):
+        groq_key = st.text_input(
+            "Groq API Key",
+            value=groq_current,
+            type="password",
+            placeholder="gsk_...",
+        )
+        col_a, col_b = st.columns([1, 1])
+        if col_a.form_submit_button("💾 Simpan Groq Key", type="primary"):
+            save_env_var("GROQ_API_KEY", groq_key.strip())
+            st.toast("✓ Groq API Key disimpan", icon="✅")
+            st.success("✓ Groq API Key disimpan")
+            st.rerun()
+        if col_b.form_submit_button("🗑️ Hapus"):
+            save_env_var("GROQ_API_KEY", "")
+            st.toast("✓ Groq API Key dihapus", icon="🗑️")
+            st.success("✓ Groq API Key dihapus")
+            st.rerun()
+
+    st.divider()
+
+    # OpenAI
+    st.markdown("### 🧠 OpenAI API (Opsional)")
+    st.caption("Alternatif Groq. Bisa dipakai buat AI explanation.")
+    st.markdown("🔗 Daftar: [platform.openai.com](https://platform.openai.com/api-keys)")
+
+    openai_current = get_env_var("OPENAI_API_KEY")
+    openai_status = "✅ Ada" if openai_current else "❌ Belum diset"
+    st.markdown(f"**Status:** {openai_status}")
+
+    with st.form("openai_form"):
+        openai_key = st.text_input(
+            "OpenAI API Key",
+            value=openai_current,
+            type="password",
+            placeholder="sk-...",
+        )
+        col_a, col_b = st.columns([1, 1])
+        if col_a.form_submit_button("💾 Simpan OpenAI Key", type="primary"):
+            save_env_var("OPENAI_API_KEY", openai_key.strip())
+            st.toast("✓ OpenAI API Key disimpan", icon="✅")
+            st.success("✓ OpenAI API Key disimpan")
+            st.rerun()
+        if col_b.form_submit_button("🗑️ Hapus"):
+            save_env_var("OPENAI_API_KEY", "")
+            st.toast("✓ OpenAI API Key dihapus", icon="🗑️")
+            st.success("✓ OpenAI API Key dihapus")
+            st.rerun()
+
+    st.divider()
+    st.markdown("### 📋 Status Semua Keys")
+    status_df = pd.DataFrame([
+        {"Key": "SECTORS_API_KEY", "Status": "✅ Ada" if get_env_var("SECTORS_API_KEY") else "❌ Belum"},
+        {"Key": "GROQ_API_KEY", "Status": "✅ Ada" if get_env_var("GROQ_API_KEY") else "❌ Belum"},
+        {"Key": "OPENAI_API_KEY", "Status": "✅ Ada" if get_env_var("OPENAI_API_KEY") else "❌ Belum"},
+    ])
+    st.dataframe(status_df, use_container_width=True, hide_index=True)
