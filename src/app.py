@@ -1,55 +1,49 @@
+"""
+app.py — Rivalytics UI (Streamlit).
+
+Profile perusahaan = Organization (disatukan via CompanyProfile).
+Tab Organizations dihapus — semua diakses via Companies → Profile Perusahaan.
+"""
 import sys
+import io
 from pathlib import Path
+from contextlib import redirect_stdout
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-import importlib.util
 import streamlit as st
 import pandas as pd
 
-from interpretation import interpret_general, interpret_relative, explain_with_groq
+# ============================================================
+# CORE IMPORTS (sesuai struktur folder)
+# ============================================================
+from core.db import (
+    get_conn,
+    get_organization,
+    get_relationships,
+    add_relationship,
+    remove_relationship,
+)
+from discovery.profile import (
+    CompanyProfile,
+    SizeTier,
+    save_profile,
+    get_profile,
+    list_profiles,
+    delete_profile,
+)
+from core.csv_import import import_csv
+from core.ai_explain import explain
+from interpretation import (
+    interpret_general,
+    interpret_relative,
+)
 
 
-# DATA LOADER
-USE_DUMMY = True
-
-
-def _load_dummy_data():
-    """Load dummy_data.py without requiring a rename of the original file."""
-    path = ROOT / "dummy_data.py"
-    spec = importlib.util.spec_from_file_location("dummy_data", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Tidak dapat membaca {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_data():
-    if USE_DUMMY:
-        dummy = _load_dummy_data()
-        return {
-            "companies": dummy.DUMMY_COMPANIES,
-            "signals": dummy.DUMMY_SIGNALS,
-            "orgs": dummy.DUMMY_ORGS,
-            "relationships": dummy.DUMMY_RELATIONSHIPS,
-        }
-
-    from core.db import get_conn
-
-    conn = get_conn()
-    try:
-        return {
-            "companies": [dict(r) for r in conn.execute("SELECT * FROM companies").fetchall()],
-            "signals": [dict(r) for r in conn.execute("SELECT * FROM signals").fetchall()],
-            "orgs": [dict(r) for r in conn.execute("SELECT * FROM organizations").fetchall()],
-            "relationships": [dict(r) for r in conn.execute("SELECT * FROM relationships").fetchall()],
-        }
-    finally:
-        conn.close()
-
-# PAGE 
+# ============================================================
+# PAGE CONFIG + STYLE
+# ============================================================
 st.set_page_config(
     page_title="Rivalytics",
     page_icon="◈",
@@ -57,351 +51,676 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown(
-    """
-    <style>
-        #MainMenu, footer {visibility: hidden;}
-        header {visibility: hidden;}
-
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 3rem;
-            max-width: 1500px;
-        }
-
-        [data-testid="stSidebar"] {
-            border-right: 1px solid rgba(128,128,128,.18);
-        }
-
-        .brand {
-            font-size: 1.55rem;
-            font-weight: 800;
-            letter-spacing: -.03em;
-            margin-bottom: .15rem;
-        }
-        .brand-sub {
-            color: #8a8f98;
-            font-size: .82rem;
-            margin-bottom: 1.3rem;
-        }
-
-        .hero {
-            padding: 1.55rem 1.7rem;
-            border: 1px solid rgba(128,128,128,.18);
-            border-radius: 18px;
-            background: linear-gradient(135deg, rgba(80,100,180,.10), rgba(80,100,180,.025));
-            margin-bottom: 1.2rem;
-        }
-        .hero h1 { margin: 0 0 .35rem 0; font-size: 2rem; }
-        .hero p { margin: 0; color: #8a8f98; }
-
-        .section-title {
-            font-size: 1.08rem;
-            font-weight: 750;
-            margin: .7rem 0 .65rem 0;
-        }
-
-        .signal-card {
-            padding: 1rem 1.05rem;
-            border: 1px solid rgba(128,128,128,.17);
-            border-radius: 14px;
-            margin-bottom: .7rem;
-            background: rgba(128,128,128,.035);
-        }
-        .signal-name { font-weight: 700; }
-        .signal-meta { color: #8a8f98; font-size: .82rem; }
-
-        .small-muted { color: #8a8f98; font-size: .82rem; }
-
-        div[data-testid="stMetric"] {
-            border: 1px solid rgba(128,128,128,.17);
-            padding: .85rem 1rem;
-            border-radius: 14px;
-            background: rgba(128,128,128,.035);
-        }
-
-        .empty-state {
-            padding: 2rem;
-            text-align: center;
-            border: 1px dashed rgba(128,128,128,.3);
-            border-radius: 14px;
-            color: #8a8f98;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<style>
+    #MainMenu, footer, header {visibility: hidden;}
+    .block-container {padding-top: 2rem; padding-bottom: 3rem; max-width: 1500px;}
+    [data-testid="stSidebar"] {border-right: 1px solid rgba(128,128,128,.18);}
+    .brand {font-size: 1.55rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: .15rem;}
+    .brand-sub {color: #8a8f98; font-size: .82rem; margin-bottom: 1.3rem;}
+    .hero {
+        padding: 1.55rem 1.7rem;
+        border: 1px solid rgba(128,128,128,.18);
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(80,100,180,.10), rgba(80,100,180,.025));
+        margin-bottom: 1.2rem;
+    }
+    .hero h1 { margin: 0 0 .35rem 0; font-size: 2rem; }
+    .hero p { margin: 0; color: #8a8f98; }
+    .section-title {font-size: 1.08rem; font-weight: 750; margin: .7rem 0 .65rem 0;}
+    div[data-testid="stMetric"] {
+        border: 1px solid rgba(128,128,128,.17);
+        padding: .85rem 1rem;
+        border-radius: 14px;
+        background: rgba(128,128,128,.035);
+    }
+    .empty-state {
+        padding: 2rem;
+        text-align: center;
+        border: 1px dashed rgba(128,128,128,.3);
+        border-radius: 14px;
+        color: #8a8f98;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
-data = load_data()
-companies = data["companies"]
-signals = data["signals"]
-orgs = data["orgs"]
-relationships = data["relationships"]
+# ============================================================
+# HELPERS
+# ============================================================
+def run_and_capture(func, *args, **kwargs) -> str:
+    """Panggil fungsi yang print() ke stdout, tangkap output."""
+    buf = io.StringIO()
+    try:
+        with redirect_stdout(buf):
+            func(*args, **kwargs)
+    except Exception as e:
+        return f"⚠ Error: {e}"
+    return buf.getvalue()
 
+
+def load_all():
+    """Load semua data dari DB."""
+    conn = get_conn()
+    try:
+        companies = [dict(r) for r in conn.execute("SELECT * FROM companies").fetchall()]
+        signals = [dict(r) for r in conn.execute("SELECT * FROM signals").fetchall()]
+        orgs = [dict(r) for r in conn.execute("SELECT * FROM organizations").fetchall()]
+        rels = [dict(r) for r in conn.execute("SELECT * FROM relationships").fetchall()]
+    finally:
+        conn.close()
+    return companies, signals, orgs, rels
+
+
+def signal_label(v):
+    return str(v).replace("_", " ").title()
+
+
+def severity_icon(v):
+    return {"attention": "🔴", "watch": "🟡", "info": "🔵"}.get(v, "⚪")
+
+
+def format_delta(v):
+    return "n/a" if v is None else f"{v:+.1f}%"
+
+
+# ============================================================
+# LOAD DATA
+# ============================================================
+companies, signals, orgs, relationships = load_all()
 company_by_symbol = {c["symbol"]: c for c in companies}
 
 
-def signal_label(value):
-    return str(value).replace("_", " ").title()
-
-
-def severity_icon(value):
-    return {"attention": "🔴", "watch": "🟡", "info": "🔵"}.get(value, "⚪")
-
-
-def format_delta(value):
-    return "n/a" if value is None else f"{value:+.1f}%"
-
-
-# SIDEBAR NAVIGATION
+# ============================================================
+# SIDEBAR — tanpa tab Organizations
+# ============================================================
 with st.sidebar:
     st.markdown('<div class="brand">◈ Rivalytics</div>', unsafe_allow_html=True)
-    st.markdown('<div class="brand-sub">Competitive intelligence dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand-sub">Competitive intelligence</div>', unsafe_allow_html=True)
 
-    page = st.radio(
-        "Navigation",
-        ["Dashboard", "Companies", "Signals", "Organizations", "Interpretation"],
-        label_visibility="collapsed",
-    )
+    page = st.radio("Navigation", [
+        "🏠 Dashboard",
+        "🏢 Companies",
+        "🔔 Signals",
+        "🔗 Relationships",
+        "📥 Ingest Data",
+        "📄 CSV Import",
+        "📊 Reports",
+        "🧠 Interpretation",
+        "🤖 AI Explain",
+    ], label_visibility="collapsed")
 
     st.divider()
-    st.caption("DATA STATUS")
-    if USE_DUMMY:
-        st.warning("Dummy data aktif")
-    else:
-        st.success("Database aktif")
+    st.caption(f"{len(companies)} companies · {len(signals)} signals · {len(orgs)} profiles")
 
-    st.caption(f"{len(companies)} companies · {len(signals)} signals · {len(orgs)} organizations")
 
-# DASHBOARD
-if page == "Dashboard":
+# ============================================================
+# 🏠 DASHBOARD
+# ============================================================
+if page == "🏠 Dashboard":
     st.markdown(
         '<div class="hero"><h1>Competitive Intelligence</h1>'
-        '<p>Pantau perubahan perusahaan, sinyal risiko, dan posisi relatif terhadap kompetitor.</p></div>',
+        '<p>Pantau perubahan, sinyal risiko, dan posisi relatif.</p></div>',
         unsafe_allow_html=True,
     )
 
-    attention = sum(s.get("severity") == "attention" for s in signals)
-    watch = sum(s.get("severity") == "watch" for s in signals)
-    info = sum(s.get("severity") == "info" for s in signals)
+    att = sum(1 for s in signals if s["severity"] == "attention")
+    watch = sum(1 for s in signals if s["severity"] == "watch")
+    info = sum(1 for s in signals if s["severity"] == "info")
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Companies", len(companies))
     c2.metric("Total Signals", len(signals))
-    c3.metric("Attention", attention)
+    c3.metric("Attention", att)
     c4.metric("Watch", watch)
 
     st.markdown('<div class="section-title">Signal overview</div>', unsafe_allow_html=True)
+
     left, right = st.columns([1.15, 1])
-
     with left:
-        severity_df = pd.DataFrame({
+        df = pd.DataFrame({
             "Severity": ["Attention", "Watch", "Info"],
-            "Count": [attention, watch, info],
+            "Count": [att, watch, info],
         })
-        st.bar_chart(severity_df.set_index("Severity"))
-
+        st.bar_chart(df.set_index("Severity"))
     with right:
-        type_counts = (
-            pd.Series([signal_label(s["signal_type"]) for s in signals])
-            .value_counts()
-            .rename_axis("Signal")
-            .reset_index(name="Count")
-        )
-        st.dataframe(type_counts, use_container_width=True, hide_index=True)
+        if signals:
+            types = pd.Series([signal_label(s["signal_type"]) for s in signals])
+            type_counts = types.value_counts().rename_axis("Signal").reset_index(name="Count")
+            st.dataframe(type_counts, use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-title">Companies requiring attention</div>', unsafe_allow_html=True)
     rows = []
     for c in companies:
-        company_signals = [s for s in signals if s["symbol"] == c["symbol"]]
-        att = sum(s["severity"] == "attention" for s in company_signals)
-        watch_count = sum(s["severity"] == "watch" for s in company_signals)
+        cs = [s for s in signals if s["symbol"] == c["symbol"]]
         rows.append({
             "Symbol": c["symbol"],
             "Company": c["name"],
-            "Sector": c["sector"],
-            "Attention": att,
-            "Watch": watch_count,
-            "Signals": len(company_signals),
+            "Sector": c.get("sector", "-"),
+            "Attention": sum(1 for s in cs if s["severity"] == "attention"),
+            "Watch": sum(1 for s in cs if s["severity"] == "watch"),
+            "Signals": len(cs),
         })
-
-    top_df = pd.DataFrame(rows).sort_values(
-        ["Attention", "Watch", "Signals"], ascending=False
-    )
-    st.dataframe(top_df, use_container_width=True, hide_index=True)
-
-
-# COMPANIES
-elif page == "Companies":
-    st.markdown('<div class="hero"><h1>Companies</h1><p>Daftar perusahaan yang tersedia di Rivalytics.</p></div>', unsafe_allow_html=True)
-
-    search = st.text_input("Search company", placeholder="Cari nama atau symbol...")
-    sector_options = ["All"] + sorted({c["sector"] for c in companies})
-    sector = st.selectbox("Sector", sector_options)
-
-    df = pd.DataFrame(companies)
-    if search:
-        q = search.lower()
-        df = df[df["symbol"].str.lower().str.contains(q) | df["name"].str.lower().str.contains(q)]
-    if sector != "All":
-        df = df[df["sector"] == sector]
-
-    st.caption(f"Menampilkan {len(df)} dari {len(companies)} perusahaan")
-    st.dataframe(df, use_container_width=True, hide_index=True)
-
-
-# SIGNALS
-elif page == "Signals":
-    st.markdown('<div class="hero"><h1>Signals</h1><p>Temukan perubahan yang membutuhkan perhatian lebih lanjut.</p></div>', unsafe_allow_html=True)
-
-    df = pd.DataFrame(signals)
-    all_severity = ["attention", "watch", "info"]
-    all_types = sorted(df["signal_type"].dropna().unique())
-    all_periods = sorted(df["period_label"].dropna().unique(), reverse=True)
-
-    f1, f2, f3 = st.columns(3)
-    severity = f1.multiselect("Severity", all_severity, default=all_severity)
-    types = f2.multiselect("Signal type", all_types, default=all_types, format_func=signal_label)
-    periods = f3.multiselect("Period", all_periods, default=all_periods)
-
-    filtered = df[
-        df["severity"].isin(severity)
-        & df["signal_type"].isin(types)
-        & df["period_label"].isin(periods)
-    ].copy()
-
-    filtered["Signal"] = filtered["signal_type"].map(signal_label)
-    filtered["Delta"] = filtered["delta_pct"].map(format_delta)
-    filtered["Severity"] = filtered["severity"].map(lambda x: f"{severity_icon(x)} {x.title()}")
-
-    st.caption(f"{len(filtered)} signal ditemukan")
-    st.dataframe(
-        filtered[["symbol", "period_label", "Signal", "Severity", "Delta"]],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "symbol": "Symbol",
-            "period_label": "Period",
-            "Signal": "Signal Type",
-            "Severity": "Severity",
-            "Delta": "YoY Delta",
-        },
-    )
-
-# ORGANIZATIONS
-elif page == "Organizations":
-    st.markdown('<div class="hero"><h1>Organizations</h1><p>Perusahaan pengguna dan hubungan kompetitifnya.</p></div>', unsafe_allow_html=True)
-
-    if not orgs:
-        st.markdown('<div class="empty-state">Belum ada organization.</div>', unsafe_allow_html=True)
+    if rows:
+        top = pd.DataFrame(rows).sort_values(["Attention", "Watch", "Signals"], ascending=False)
+        st.dataframe(top, use_container_width=True, hide_index=True)
     else:
-        org_names = [o["name"] for o in orgs]
-        selected_name = st.selectbox("Organization", org_names)
-        org = next(o for o in orgs if o["name"] == selected_name)
+        st.markdown('<div class="empty-state">Belum ada data.</div>', unsafe_allow_html=True)
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Size tier", org.get("size_tier", "n/a").title())
-        c2.metric("Sector", org.get("sector_slug", "n/a"))
-        c3.metric("Subsector", org.get("subsector_slug", "n/a"))
 
-        st.info(org.get("description", "Tidak ada deskripsi."))
+# ============================================================
+# 🏢 COMPANIES (termasuk Profile Perusahaan)
+# ============================================================
+elif page == "🏢 Companies":
+    st.markdown('<div class="hero"><h1>Companies & Profiles</h1><p>Kelola data perusahaan & profil user.</p></div>', unsafe_allow_html=True)
 
-        org_rel = [r for r in relationships if r["organization_id"] == org["id"]]
-        st.markdown('<div class="section-title">Relationships</div>', unsafe_allow_html=True)
-        if org_rel:
-            rel_df = pd.DataFrame(org_rel)
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📋 List Companies",
+        "📊 Company Detail",
+        "🔍 Discovery",
+        "👤 Profile Perusahaan",
+    ])
+
+    # ---------- TAB 1: LIST COMPANIES ----------
+    with tab1:
+        search = st.text_input("Search", placeholder="Nama atau symbol...")
+        df = pd.DataFrame(companies) if companies else pd.DataFrame()
+        if not df.empty:
+            if search:
+                q = search.lower()
+                df = df[df["symbol"].str.lower().str.contains(q) | df["name"].str.lower().str.contains(q)]
+            st.caption(f"{len(df)} dari {len(companies)} perusahaan")
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.info("Belum ada perusahaan. Ingest data dulu di tab **Ingest Data**.")
+
+    # ---------- TAB 2: COMPANY DETAIL ----------
+    with tab2:
+        if not companies:
+            st.info("Belum ada perusahaan.")
+        else:
+            symbol = st.selectbox("Pilih company", [c["symbol"] for c in companies])
+            if st.button("Lihat Detail", type="primary"):
+                from core.report import company_detail
+                out = run_and_capture(company_detail, symbol)
+                st.code(out, language="text")
+
+    # ---------- TAB 3: DISCOVERY ----------
+    with tab3:
+        st.markdown("**Discovery** — cari kompetitor/supplier kandidat")
+        try:
+            from discovery.discovery import discover_competitors
+            from core.taxonomy import load_or_fetch_taxonomy
+            from core.sectors_client import SectorsClient
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                sub_slug = st.text_input("Subsector slug", value="food-beverage")
+            with c2:
+                tier = st.selectbox("Size tier", ["micro", "small", "medium", "large"], index=2)
+            with c3:
+                limit = st.number_input("Limit", min_value=1, max_value=50, value=8)
+
+            if st.button("🔍 Discover Competitors", type="primary"):
+                with st.spinner("Mencari..."):
+                    try:
+                        client = SectorsClient()
+                        taxonomy = load_or_fetch_taxonomy(client)
+                        profile = CompanyProfile(
+                            name="User",
+                            sector_slug="consumer-non-cyclicals",
+                            subsector_slug=sub_slug,
+                            size_tier=SizeTier(tier),
+                        )
+                        comps = discover_competitors(profile, client, taxonomy, limit=limit)
+                        st.success(f"Ditemukan {len(comps)} kandidat")
+                        if comps:
+                            st.dataframe(pd.DataFrame(comps), use_container_width=True, hide_index=True)
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        except ImportError as e:
+            st.warning(f"Module belum ada: {e}")
+
+    # ---------- TAB 4: PROFILE PERUSAHAAN ----------
+    with tab4:
+        st.markdown("**Profile Perusahaan** — kelola profil user")
+        st.caption("Ini representasi perusahaan kamu — dipakai buat monitoring & report.")
+
+        # List profiles
+        st.markdown("### 📋 Daftar Profile")
+        if orgs:
+            profile_df = pd.DataFrame(orgs)
+            cols = ["id", "name", "sector_slug", "subsector_slug", "size_tier", "description"]
+            cols = [c for c in cols if c in profile_df.columns]
             st.dataframe(
-                rel_df[["company_symbol", "company_name", "relationship_type", "priority"]],
+                profile_df[cols],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "company_symbol": "Symbol",
-                    "company_name": "Company",
-                    "relationship_type": "Relationship",
-                    "priority": "Priority",
+                    "id": "ID",
+                    "name": "Nama",
+                    "sector_slug": "Sector",
+                    "subsector_slug": "Subsector",
+                    "size_tier": "Tier",
+                    "description": "Deskripsi",
                 },
             )
         else:
-            st.markdown('<div class="empty-state">Belum ada relationship.</div>', unsafe_allow_html=True)
+            st.info("Belum ada profile. Bikin di bawah.")
+
+        st.divider()
+
+        # Create profile
+        st.markdown("### ➕ Bikin Profile Baru")
+
+        with st.form("create_profile_form"):
+            name = st.text_input("Nama perusahaan", placeholder="PT Contoh Pangan")
+            c1, c2 = st.columns(2)
+            with c1:
+                sector = st.text_input("Sector slug", value="consumer-non-cyclicals")
+                size = st.selectbox("Size tier", ["micro", "small", "medium", "large"], index=2)
+            with c2:
+                subsector = st.text_input("Subsector slug", value="food-beverage")
+                ticker = st.text_input("Ticker (opsional)", placeholder="ICBP")
+
+            desc = st.text_area(
+                "Deskripsi (opsional)",
+                height=80,
+                placeholder="Perusahaan makanan ringan yang fokus pada...",
+            )
+
+            if st.form_submit_button("💾 Simpan Profile", type="primary"):
+                if not name:
+                    st.error("Nama wajib diisi")
+                else:
+                    profile = CompanyProfile(
+                        name=name,
+                        sector_slug=sector,
+                        subsector_slug=subsector,
+                        size_tier=SizeTier(size),
+                        business_description=desc,
+                        ticker=ticker or None,
+                    )
+                    conn = get_conn()
+                    org_id = save_profile(conn, profile)
+                    conn.close()
+                    st.success(f"✓ Profile disimpan (id={org_id})")
+                    st.rerun()
+
+        # Edit / Delete
+        if orgs:
+            st.divider()
+            st.markdown("### ✏️ Edit / Hapus Profile")
+
+            org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+            selected = st.selectbox("Pilih profile", list(org_options.keys()), key="edit_profile_select")
+            org_id = org_options[selected]
+
+            conn = get_conn()
+            profile = get_profile(conn, org_id)
+            conn.close()
+
+            if profile:
+                with st.form("edit_profile_form"):
+                    e_name = st.text_input("Nama", value=profile.name)
+                    ec1, ec2 = st.columns(2)
+                    with ec1:
+                        e_sector = st.text_input("Sector", value=profile.sector_slug)
+                        tier_list = ["micro", "small", "medium", "large"]
+                        e_size = st.selectbox(
+                            "Size tier",
+                            tier_list,
+                            index=tier_list.index(profile.size_tier.value),
+                        )
+                    with ec2:
+                        e_subsector = st.text_input("Subsector", value=profile.subsector_slug)
+                        e_ticker = st.text_input("Ticker", value=profile.ticker or "")
+
+                    e_desc = st.text_area("Deskripsi", value=profile.business_description, height=80)
+
+                    col_a, col_b = st.columns([1, 1])
+
+                    if col_a.form_submit_button("💾 Update", type="primary"):
+                        updated = CompanyProfile(
+                            id=org_id,
+                            name=e_name,
+                            sector_slug=e_sector,
+                            subsector_slug=e_subsector,
+                            size_tier=SizeTier(e_size),
+                            business_description=e_desc,
+                            ticker=e_ticker or None,
+                        )
+                        conn = get_conn()
+                        save_profile(conn, updated)
+                        conn.close()
+                        st.success("✓ Profile diupdate")
+                        st.rerun()
+
+                    if col_b.form_submit_button("🗑️ Hapus"):
+                        conn = get_conn()
+                        ok = delete_profile(conn, org_id)
+                        conn.close()
+                        if ok:
+                            st.success(f"✓ Profile {org_id} dihapus")
+                            st.rerun()
 
 
-# INTERPRETATION
-elif page == "Interpretation":
-    st.markdown('<div class="hero"><h1>Signal Interpretation</h1><p>Bandingkan sebuah signal terhadap peer dan perusahaan kamu.</p></div>', unsafe_allow_html=True)
+# ============================================================
+# 🔔 SIGNALS
+# ============================================================
+elif page == "🔔 Signals":
+    st.markdown('<div class="hero"><h1>Signals</h1><p>Perubahan yang butuh perhatian.</p></div>', unsafe_allow_html=True)
 
     if not signals:
-        st.markdown('<div class="empty-state">Belum ada signal untuk diinterpretasikan.</div>', unsafe_allow_html=True)
-        st.stop()
+        st.markdown('<div class="empty-state">Belum ada signal.</div>', unsafe_allow_html=True)
+    else:
+        df = pd.DataFrame(signals)
+        all_sev = ["attention", "watch", "info"]
+        all_types = sorted(df["signal_type"].dropna().unique())
 
-    all_symbols = sorted({s["symbol"] for s in signals})
-    symbol = st.selectbox(
-        "Company",
-        all_symbols,
-        format_func=lambda x: f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
-    )
+        f1, f2 = st.columns(2)
+        sev = f1.multiselect("Severity", all_sev, default=all_sev)
+        types = f2.multiselect("Signal type", all_types, default=all_types, format_func=signal_label)
 
-    company_signals = [s for s in signals if s["symbol"] == symbol]
-    periods = sorted({s["period_label"] for s in company_signals}, reverse=True)
-    period = st.selectbox("Period", periods)
+        filtered = df[df["severity"].isin(sev) & df["signal_type"].isin(types)].copy()
+        filtered["Signal"] = filtered["signal_type"].map(signal_label)
+        filtered["Delta"] = filtered["delta_pct"].map(format_delta)
+        filtered["Severity"] = filtered["severity"].map(lambda x: f"{severity_icon(x)} {x.title()}")
 
-    period_signals = [s for s in company_signals if s["period_label"] == period]
-    types = sorted({s["signal_type"] for s in period_signals})
-    sig_type = st.selectbox("Signal type", types, format_func=signal_label)
-    signal = next(s for s in period_signals if s["signal_type"] == sig_type)
+        st.caption(f"{len(filtered)} signal")
+        st.dataframe(
+            filtered[["symbol", "period_label", "Signal", "Severity", "Delta"]],
+            use_container_width=True,
+            hide_index=True,
+        )
 
-    st.divider()
 
-    company = company_by_symbol.get(symbol, {})
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Company", symbol)
-    m2.metric("Period", signal["period_label"])
-    m3.metric("YoY Delta", format_delta(signal.get("delta_pct")))
-    m4.metric("Severity", f"{severity_icon(signal['severity'])} {signal['severity'].title()}")
+# ============================================================
+# 🔗 RELATIONSHIPS
+# ============================================================
+elif page == "🔗 Relationships":
+    st.markdown('<div class="hero"><h1>Relationships</h1><p>Kelola hubungan dengan monitored companies.</p></div>', unsafe_allow_html=True)
 
-    st.markdown(
-        f"**{company.get('name', symbol)}** · {company.get('sector', 'n/a')} · "
-        f"{company.get('sub_sector', 'n/a')} · **{signal_label(sig_type)}**"
-    )
+    if not orgs:
+        st.warning("Belum ada profile perusahaan. Bikin dulu di **Companies → Profile Perusahaan**.")
+    else:
+        org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+        selected = st.selectbox("Pilih profile", list(org_options.keys()))
+        org_id = org_options[selected]
 
-    st.divider()
+        tab1, tab2, tab3 = st.tabs(["📋 Show", "➕ Add", "🗑️ Remove"])
 
-    user_options = ["Tidak dibandingkan"] + [
-        s for s in all_symbols if s != symbol
-    ]
-    user_symbol = st.selectbox(
-        "Perusahaan pembanding kamu",
-        user_options,
-        format_func=lambda x: x if x == "Tidak dibandingkan" else f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
-    )
-    user_symbol = None if user_symbol == "Tidak dibandingkan" else user_symbol
+        with tab1:
+            conn = get_conn()
+            rels = get_relationships(conn, org_id)
+            conn.close()
+            if rels:
+                st.dataframe(pd.DataFrame(rels), use_container_width=True, hide_index=True)
+            else:
+                st.info("Belum ada relationship.")
 
-    general = interpret_general(symbol, signal, companies, signals)
-    relative = interpret_relative(symbol, signal, user_symbol, signals)
+        with tab2:
+            with st.form("add_rel_form"):
+                c1, c2, c3 = st.columns(3)
+                symbol = c1.text_input("Symbol", placeholder="ICBP").upper()
+                rel_type = c2.selectbox(
+                    "Type",
+                    ["competitor", "supplier", "customer", "distributor", "partner", "other"],
+                )
+                priority = c3.selectbox("Priority", ["high", "medium", "low"], index=1)
 
-    st.divider()
-    a, b = st.columns(2)
-    with a:
-        st.markdown("### 🌐 General interpretation")
-        st.caption("Perbandingan dengan peer dalam subsector yang sama")
-        st.info(general)
-    with b:
-        st.markdown("### 🎯 Relative interpretation")
-        st.caption("Perbandingan dengan perusahaan pilihan kamu")
-        st.info(relative)
+                if st.form_submit_button("Tambah", type="primary"):
+                    if not symbol:
+                        st.error("Symbol wajib diisi")
+                    else:
+                        conn = get_conn()
+                        added = add_relationship(conn, org_id, symbol, rel_type, priority)
+                        conn.close()
+                        if added:
+                            st.success(f"✓ {symbol} → {rel_type} [{priority}]")
+                            st.rerun()
+                        else:
+                            st.warning(f"⚠ {symbol} sudah ada")
 
-    st.divider()
-    st.markdown("### 🔍 AI explanation")
-    st.caption("Penjelasan tambahan menggunakan Groq jika API key tersedia.")
+        with tab3:
+            conn = get_conn()
+            rels = get_relationships(conn, org_id)
+            conn.close()
+            if rels:
+                to_remove = st.selectbox("Pilih yang dihapus", [r["company_symbol"] for r in rels])
+                if st.button("🗑️ Hapus", type="primary"):
+                    conn = get_conn()
+                    ok = remove_relationship(conn, org_id, to_remove)
+                    conn.close()
+                    if ok:
+                        st.success(f"✓ {to_remove} dihapus")
+                        st.rerun()
+            else:
+                st.info("Belum ada relationship.")
 
-    if st.button("Explain signal", type="primary"):
-        with st.spinner("Menganalisis signal..."):
-            explanation = explain_with_groq(
-                symbol,
-                signal,
-                general,
-                relative,
-                user_name=user_symbol or "perusahaan kamu",
+
+# ============================================================
+# 📥 INGEST DATA
+# ============================================================
+elif page == "📥 Ingest Data":
+    st.markdown('<div class="hero"><h1>Ingest Data</h1><p>Ambil data dari Sectors API.</p></div>', unsafe_allow_html=True)
+
+    try:
+        from monitoring.ingest import Ingestor
+
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            symbols_input = st.text_area(
+                "Symbols (1 per baris atau dipisah koma)",
+                placeholder="BBCA\nBBRI\nADRO",
+                height=120,
             )
-        st.markdown("#### Hasil analisis")
-        st.write(explanation)
+        with c2:
+            n_quarters = st.number_input("Jumlah kuartal", min_value=1, max_value=12, value=8)
+
+        if st.button("🚀 Ingest", type="primary"):
+            symbols = [s.strip().upper() for s in symbols_input.replace(",", "\n").split("\n") if s.strip()]
+            if not symbols:
+                st.error("Masukin minimal 1 symbol")
+            else:
+                progress = st.progress(0)
+                results = []
+                try:
+                    ing = Ingestor()
+                    for i, sym in enumerate(symbols):
+                        try:
+                            result = ing.ingest_smart(sym)
+                            results.append({"symbol": sym, "status": "✓", "detail": str(result)})
+                        except Exception as e:
+                            results.append({"symbol": sym, "status": "✗", "detail": str(e)})
+                        progress.progress((i + 1) / len(symbols))
+                    st.dataframe(pd.DataFrame(results), use_container_width=True, hide_index=True)
+                except Exception as e:
+                    st.error(f"Error: {e}")
+    except ImportError as e:
+        st.warning(f"Module `ingest` belum tersedia: {e}")
+
+
+# ============================================================
+# 📄 CSV IMPORT
+# ============================================================
+elif page == "📄 CSV Import":
+    st.markdown('<div class="hero"><h1>CSV Import</h1><p>Upload data finansial user (per profile).</p></div>', unsafe_allow_html=True)
+
+    if not orgs:
+        st.warning("Belum ada profile perusahaan. Bikin dulu di **Companies → Profile Perusahaan**.")
+    else:
+        org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+        selected = st.selectbox("Profile", list(org_options.keys()))
+        org_id = org_options[selected]
+
+        st.markdown("**Format CSV:** `period,revenue,earnings,total_debt,operating_cash_flow`")
+        st.code(
+            "period,revenue,earnings,total_debt,operating_cash_flow\n"
+            "Q1-2025,50000000000,5000000000,10000000000,3000000000",
+            language="csv",
+        )
+
+        uploaded = st.file_uploader("Upload CSV", type=["csv"])
+        if uploaded is not None:
+            tmp = Path("temp_upload.csv")
+            tmp.write_bytes(uploaded.getvalue())
+
+            if st.button("📥 Import", type="primary"):
+                try:
+                    result = import_csv(org_id, str(tmp))
+                    st.success(f"✓ {result['inserted']} inserted, {result['updated']} updated")
+                    if result["errors"]:
+                        st.warning(f"⚠ {len(result['errors'])} error(s)")
+                        for e in result["errors"][:10]:
+                            st.text(e)
+                except Exception as e:
+                    st.error(f"Error: {e}")
+                finally:
+                    tmp.unlink(missing_ok=True)
+
+
+# ============================================================
+# 📊 REPORTS
+# ============================================================
+elif page == "📊 Reports":
+    st.markdown('<div class="hero"><h1>Reports</h1><p>Ringkasan & laporan detail.</p></div>', unsafe_allow_html=True)
+
+    tab1, tab2, tab3 = st.tabs(["📈 Summary", "🏢 Company Detail", "👤 Profile Report + AI"])
+
+    with tab1:
+        if st.button("Load Summary", type="primary"):
+            from core.report import summary
+            st.code(run_and_capture(summary), language="text")
+
+    with tab2:
+        if not companies:
+            st.info("Belum ada perusahaan.")
+        else:
+            symbol = st.selectbox("Company", [c["symbol"] for c in companies], key="report_sym")
+            if st.button("Load Detail", type="primary"):
+                from core.report import company_detail
+                st.code(run_and_capture(company_detail, symbol), language="text")
+
+    with tab3:
+        if not orgs:
+            st.info("Belum ada profile perusahaan.")
+        else:
+            org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+            selected = st.selectbox("Profile", list(org_options.keys()), key="report_org")
+            org_id = org_options[selected]
+
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                use_ai = st.checkbox("Include AI explanation")
+            with col2:
+                ai_symbol = st.text_input("AI symbol (opsional)", placeholder="ADRO")
+
+            if st.button("Load Report", type="primary"):
+                from core.report_org import org_dashboard
+
+                if use_ai and ai_symbol:
+                    st.markdown(f"### Report: {selected}")
+                    st.code(run_and_capture(org_dashboard, org_id), language="text")
+
+                    st.markdown(f"### 🤖 AI: {ai_symbol.upper()}")
+                    with st.spinner("AI thinking..."):
+                        try:
+                            result = explain(ai_symbol.upper(), relationship_type="competitor")
+                            st.markdown(result)
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                else:
+                    st.code(run_and_capture(org_dashboard, org_id), language="text")
+
+
+# ============================================================
+# 🧠 INTERPRETATION
+# ============================================================
+elif page == "🧠 Interpretation":
+    st.markdown('<div class="hero"><h1>Interpretation</h1><p>Bandingkan signal vs peer & vs user.</p></div>', unsafe_allow_html=True)
+
+    if not signals:
+        st.info("Belum ada signal.")
+    else:
+        all_symbols = sorted({s["symbol"] for s in signals})
+        c1, c2 = st.columns(2)
+        with c1:
+            symbol = st.selectbox(
+                "Company",
+                all_symbols,
+                format_func=lambda x: f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
+            )
+        with c2:
+            company_signals = [s for s in signals if s["symbol"] == symbol]
+            periods = sorted({s["period_label"] for s in company_signals}, reverse=True)
+            period = st.selectbox("Period", periods)
+
+        period_signals = [s for s in company_signals if s["period_label"] == period]
+        types = sorted({s["signal_type"] for s in period_signals})
+        sig_type = st.selectbox("Signal type", types, format_func=signal_label)
+        signal = next(s for s in period_signals if s["signal_type"] == sig_type)
+
+        st.divider()
+
+        company = company_by_symbol.get(symbol, {})
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Company", symbol)
+        m2.metric("Period", signal["period_label"])
+        m3.metric("YoY Delta", format_delta(signal.get("delta_pct")))
+        m4.metric("Severity", f"{severity_icon(signal['severity'])} {signal['severity'].title()}")
+
+        st.markdown(f"**{company.get('name', symbol)}** · {company.get('sector', 'n/a')} · {signal_label(sig_type)}")
+
+        st.divider()
+
+        user_options = ["Tidak dibandingkan"] + [s for s in all_symbols if s != symbol]
+        user_symbol = st.selectbox(
+            "Perusahaan pembanding",
+            user_options,
+            format_func=lambda x: x if x == "Tidak dibandingkan" else f"{x} — {company_by_symbol.get(x, {}).get('name', '')}",
+        )
+        user_symbol = None if user_symbol == "Tidak dibandingkan" else user_symbol
+
+        general = interpret_general(symbol, signal, companies, signals)
+        relative = interpret_relative(symbol, signal, user_symbol, signals)
+
+        a, b = st.columns(2)
+        with a:
+            st.markdown("### 🌐 General interpretation")
+            st.caption("vs peer dalam subsector yang sama")
+            st.info(general)
+        with b:
+            st.markdown("### 🎯 Relative interpretation")
+            st.caption("vs perusahaan pilihan kamu")
+            st.info(relative)
+
+
+# ============================================================
+# 🤖 AI EXPLAIN
+# ============================================================
+elif page == "🤖 AI Explain":
+    st.markdown('<div class="hero"><h1>AI Explanation</h1><p>Narasi mendalam via LLM.</p></div>', unsafe_allow_html=True)
+
+    if not companies:
+        st.info("Belum ada perusahaan.")
+    else:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            symbol = st.selectbox("Company", [c["symbol"] for c in companies])
+        with c2:
+            rel_type = st.selectbox(
+                "Relationship",
+                ["competitor", "supplier", "customer", "distributor", "partner", "other"],
+            )
+        with c3:
+            provider = st.selectbox("Provider", ["groq", "openai"])
+
+        if st.button("🤖 Generate Explanation", type="primary"):
+            with st.spinner("Menghubungi LLM..."):
+                try:
+                    result = explain(symbol, relationship_type=rel_type, provider=provider)
+                    st.markdown("### Hasil")
+                    st.markdown(result)
+                except Exception as e:
+                    st.error(f"Error: {e}")

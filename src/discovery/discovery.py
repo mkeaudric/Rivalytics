@@ -1,6 +1,6 @@
 from typing import Optional
-from sectors_client import SectorsClient, clean_symbol
-from taxonomy import load_or_fetch_taxonomy
+from core.sectors_client import SectorsClient, clean_symbol
+from core.taxonomy import load_or_fetch_taxonomy
 from profile import CompanyProfile, SizeTier
 
 
