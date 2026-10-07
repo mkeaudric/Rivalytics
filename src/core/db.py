@@ -80,8 +80,38 @@ CREATE TABLE IF NOT EXISTS signals (
     FOREIGN KEY (symbol) REFERENCES companies(symbol)
 );
 
+CREATE TABLE IF NOT EXISTS organizations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    sector_slug     TEXT,
+    subsector_slug  TEXT,
+    size_tier       TEXT,
+    description     TEXT,
+    created_at      TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS relationships (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id     INTEGER NOT NULL,
+    company_symbol      TEXT NOT NULL,
+    relationship_type   TEXT NOT NULL,
+    priority            TEXT DEFAULT 'medium',
+    notes               TEXT,
+    created_at          TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(organization_id, company_symbol),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (company_symbol) REFERENCES companies(symbol)
+);
+
+CREATE INDEX IF NOT EXISTS idx_relationships_org
+    ON relationships(organization_id);
+
+CREATE INDEX IF NOT EXISTS idx_relationships_type
+    ON relationships(organization_id, relationship_type);
+
 CREATE INDEX IF NOT EXISTS idx_snap_symbol_date
     ON financial_snapshots(symbol, report_date DESC);
+
 CREATE INDEX IF NOT EXISTS idx_signals_symbol
     ON signals(symbol, detected_at DESC);
 """
@@ -205,6 +235,72 @@ def get_snapshots(conn, symbol, limit=12):
     """, [symbol, limit]).fetchall()
     return [dict(r) for r in rows]
 
+def create_organization(conn, name, sector_slug, subsector_slug, size_tier, description=""):
+    """Return org_id."""
+    cur = conn.execute("""
+        INSERT INTO organizations (name, sector_slug, subsector_slug, size_tier, description)
+        VALUES (?, ?, ?, ?, ?)
+    """, [name, sector_slug, subsector_slug, size_tier, description])
+    conn.commit()
+    return cur.lastrowid
+
+
+def get_organization(conn, org_id):
+    row = conn.execute(
+        "SELECT * FROM organizations WHERE id = ?", [org_id]
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def add_relationship(conn, org_id, symbol, relationship_type, priority="medium", notes=""):
+    """
+    Return True kalau baru, False kalau sudah ada.
+    """
+    try:
+        conn.execute("""
+            INSERT INTO relationships
+            (organization_id, company_symbol, relationship_type, priority, notes)
+            VALUES (?, ?, ?, ?, ?)
+        """, [org_id, symbol, relationship_type, priority, notes])
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        # Sudah ada
+        return False
+
+
+def get_relationships(conn, org_id, relationship_type=None):
+    """Return list of dict dengan info company join."""
+    query = """
+        SELECT r.*, c.name as company_name, c.sector, c.market_cap
+        FROM relationships r
+        JOIN companies c ON c.symbol = r.company_symbol
+        WHERE r.organization_id = ?
+    """
+    params = [org_id]
+    if relationship_type:
+        query += " AND r.relationship_type = ?"
+        params.append(relationship_type)
+
+    query += """
+        ORDER BY
+            CASE r.priority 
+                WHEN 'high' THEN 1 
+                WHEN 'medium' THEN 2 
+                ELSE 3 
+            END,
+            r.company_symbol
+    """
+    return [dict(r) for r in conn.execute(query, params).fetchall()]
+
+
+def remove_relationship(conn, org_id, symbol):
+    cur = conn.execute("""
+        DELETE FROM relationships 
+        WHERE organization_id = ? AND company_symbol = ?
+    """, [org_id, symbol])
+    conn.commit()
+    return cur.rowcount > 0
 
 if __name__ == "__main__":
     init_db()
