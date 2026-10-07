@@ -144,6 +144,19 @@ def org_dashboard(org_id: int):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python report_org.py <org_id>")
+        print("Usage: python report_org.py <org_id> [--explain SYMBOL]")
         sys.exit(1)
-    org_dashboard(int(sys.argv[1]))
+
+    org_id = int(sys.argv[1])
+    
+    if len(sys.argv) >= 4 and sys.argv[2] == "--explain":
+        symbol = sys.argv[3].upper()
+        # Show report + AI explanation untuk symbol itu
+        from core.ai_explain import explain
+        org_dashboard(org_id)
+        print(f"\n{'=' * 72}")
+        print(f"  AI DEEP DIVE: {symbol}")
+        print("=" * 72)
+        print(explain(symbol, relationship_type="supplier"))
+    else:
+        org_dashboard(org_id)
