@@ -14,6 +14,7 @@ import sys
 import io
 import os
 import re
+import base64
 from pathlib import Path
 from contextlib import redirect_stdout
 
@@ -31,6 +32,23 @@ except ImportError:
 
 import streamlit as st
 import pandas as pd
+
+
+# ilangin tombol 'deploy' (https://discuss.streamlit.io/t/how-to-hide-or-remove-the-deploy-button-that-appears-at-the-top-right-corner-of-the-streamlit-app/55325)
+st.markdown(
+    r"""
+    <style>
+    /* Untuk Streamlit versi baru (v1.40+) */
+    .stAppDeployButton {
+        display: none;
+    }
+    /* Sebagai fallback untuk versi lama */
+    .stDeployButton {
+        display: none;
+    }
+    </style>
+    """, unsafe_allow_html=True
+)
 
 # ============================================================
 # CORE IMPORTS
@@ -76,7 +94,16 @@ st.markdown("""
     #MainMenu, footer {visibility: hidden;}
     header[data-testid="stHeader"] {background: transparent;}
     .block-container {padding-top: 2rem; padding-bottom: 3rem; max-width: 1500px;}
-    [data-testid="stSidebar"] {border-right: 1px solid rgba(128,128,128,.18);}
+    [data-testid="stSidebar"] [data-testid="stImage"] {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    [data-testid="stSidebar"] img {
+        display: block;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
     .brand {font-size: 1.55rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: .15rem;}
     .brand-sub {color: #8a8f98; font-size: .82rem; margin-bottom: 1.3rem;}
     .hero {
@@ -109,6 +136,13 @@ st.markdown("""
 # ============================================================
 # HELPERS
 # ============================================================
+def load_logo_base64(path: Path) -> str:
+    """Load logo sebagai base64 string untuk embed di HTML."""
+    if not path.exists():
+        return ""
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
 def run_and_capture(func, *args, **kwargs) -> str:
     buf = io.StringIO()
     try:
@@ -222,8 +256,26 @@ company_by_symbol = {c["symbol"]: c for c in companies}
 # SIDEBAR
 # ============================================================
 with st.sidebar:
-    st.markdown('<div class="brand">◈ Rivalytics</div>', unsafe_allow_html=True)
-    st.markdown('<div class="brand-sub">Competitive intelligence</div>', unsafe_allow_html=True)
+    LOGO_PATH = ROOT.parent / "assets" / "logo-white.png"
+
+    logo_b64 = load_logo_base64(LOGO_PATH)
+
+    if logo_b64:
+        st.markdown(
+            f'''
+            <div style="margin-bottom: 1.3rem;">
+                <img src="data:image/png;base64,{logo_b64}"
+                     style="width: 160px; height: auto;" alt="Rivalytics">
+                <div class="brand-sub" style="margin-top: .5rem;">
+                    Competitive intelligence
+                </div>
+            </div>
+            ''',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown('<div class="brand">Rivalytics</div>', unsafe_allow_html=True)
+        st.markdown('<div class="brand-sub">Competitive intelligence</div>', unsafe_allow_html=True)
 
     page = st.radio("Navigation", [
         "🏠 Dashboard",
