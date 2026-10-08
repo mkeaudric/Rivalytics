@@ -29,8 +29,6 @@ menurun.
 bisnis Anda, mendeteksi perubahan signifikan, dan menjelaskan
 konteksnya berdasarkan relationship (competitor / supplier / customer).
 
-![Dashboard](assets/screenshot-dashboard.png)
-
 ## Key Features
 
 - **Relationship-aware monitoring** — competitor, supplier, customer
