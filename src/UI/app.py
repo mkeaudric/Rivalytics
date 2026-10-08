@@ -308,7 +308,6 @@ with st.sidebar:
         "🔗 Relationships",
         "📄 CSV Import",
         "📅 Weekly Update",
-        "📥 Ingest Data",
         "📊 Reports & AI",
         "🧠 Interpretation",
         "⚙️ Settings",
@@ -379,36 +378,64 @@ elif page == "🏢 Companies":
     st.markdown('<div class="hero"><h1>Companies & Profiles</h1><p>Kelola data perusahaan & profil user.</p></div>', unsafe_allow_html=True)
 
     tab1, tab2, tab3 = st.tabs([
-        "📋 List Companies",
+        "📋 Monitored Companies",
         "🔍 Discovery",
         "👤 Profile Perusahaan",
     ])
 
-    # ---------- TAB 1: LIST COMPANIES ----------
+    # ---------- TAB 1: MONITORED COMPANIES ----------
     with tab1:
-        search = st.text_input("Search", placeholder="Nama atau symbol...")
-        df = pd.DataFrame(companies) if companies else pd.DataFrame()
-        if not df.empty:
-            if search:
-                q = search.lower()
-                df = df[df["symbol"].str.lower().str.contains(q) | df["name"].str.lower().str.contains(q)]
-            st.caption(f"{len(df)} dari {len(companies)} perusahaan")
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            st.caption("💡 Mau lihat laporan detail perusahaan? Buka tab **📊 Reports & AI → Company Report**.")
-        else:
-            st.info("Belum ada perusahaan. Ingest data dulu di tab **Ingest Data**.")
+        st.markdown("**Monitored Companies** — perusahaan yang sudah punya relasi dengan profile Anda")
+        st.caption("Hanya perusahaan yang punya relationship yang muncul di sini.")
 
-        # ---------- TAB 2: DISCOVERY ----------
+        if not orgs:
+            st.info("Belum ada profile. Bikin dulu di tab **👤 Profile Perusahaan**.")
+        else:
+            org_options = {f"{o['name']} (id={o['id']})": o["id"] for o in orgs}
+            selected_org = st.selectbox("Profile", list(org_options.keys()), key="monitored_org")
+            org_id = org_options[selected_org]
+
+            conn = get_conn()
+            rels = get_relationships(conn, org_id)
+            conn.close()
+
+            if not rels:
+                st.info("Belum ada monitored company. Tambah dari tab **🔍 Discovery** atau **🔗 Relationships**.")
+            else:
+                rows = []
+                for rel in rels:
+                    sym = rel["company_symbol"]
+                    sym_sigs = [s for s in signals if s["symbol"] == sym]
+                    att = sum(1 for s in sym_sigs if s["severity"] == "attention")
+                    watch = sum(1 for s in sym_sigs if s["severity"] == "watch")
+                    mc = rel.get("market_cap") or 0
+                    rows.append({
+                        "Symbol": sym,
+                        "Company": rel.get("company_name", "-"),
+                        "Sector": rel.get("sector", "-"),
+                        "Relationship": (rel["relationship_type"] or "—").title() if rel["relationship_type"] else "—",
+                        "Priority": rel["priority"].title(),
+                        "Market Cap": f"Rp {mc/1e12:.2f} T" if mc else "-",
+                        "Attention": att,
+                        "Watch": watch,
+                        "Signals": len(sym_sigs),
+                    })
+                df = pd.DataFrame(rows).sort_values(
+                    ["Attention", "Watch", "Signals"], ascending=False
+                )
+                st.caption(f"{len(df)} monitored companies")
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ---------- TAB 2: DISCOVERY ----------
     with tab2:
         st.markdown("**Discovery** — cari kompetitor/supplier kandidat")
-        st.caption("Discovery menggunakan 1 credits/company. Ingest menggunakan 2 credits/company.")
+        st.caption("Discovery menggunakan ~1 credit untuk screener + ~1 credit per kandidat yang di-preview.")
 
         try:
             from discovery.discovery import discover_competitors, discover_suppliers
             from core.taxonomy import load_or_fetch_taxonomy
             from core.sectors_client import SectorsClient
 
-            # Input
             st.markdown("#### 🔍 Filter Pencarian")
             c1, c2 = st.columns(2)
             with c1:
@@ -426,7 +453,6 @@ elif page == "🏢 Companies":
             with c2:
                 sort_by = st.selectbox("Sort by", ["-market_cap", "market_cap", "symbol"])
 
-            # Preview & Search
             if st.button("🔍 Discover Sekarang", type="primary"):
                 with st.spinner("Cari kandidat..."):
                     try:
@@ -461,7 +487,6 @@ elif page == "🏢 Companies":
                     except Exception as e:
                         st.error(f"Error: {e}")
 
-            # Hasil
             if "discovery_results" in st.session_state:
                 info = st.session_state["discovery_results"]
                 comps = info["data"]
@@ -472,12 +497,11 @@ elif page == "🏢 Companies":
                 if not comps:
                     st.warning("Nggak ada kandidat. Coba ubah filter.")
                 else:
-                    # Tabel
                     df = pd.DataFrame(comps)
                     display_cols = [c for c in ["symbol_clean", "company_name", "sector", "sub_sector", "market_cap"] if c in df.columns]
                     st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
 
-                    # Bulk action
+                    # Preview
                     st.divider()
                     st.markdown("### 👁️ Preview Detail Kandidat")
                     st.caption("Pilih kandidat untuk melihat detail sebelum menambahkan ke monitoring.")
@@ -492,7 +516,6 @@ elif page == "🏢 Companies":
                         key="preview_candidate",
                     )
 
-                    # Cache detail per symbol di session state biar gak fetch ulang
                     cache_key = f"detail_cache_{preview_symbol}"
                     if cache_key not in st.session_state:
                         with st.spinner(f"Fetching detail {preview_symbol}..."):
@@ -537,7 +560,6 @@ elif page == "🏢 Companies":
                                 unsafe_allow_html=True,
                             )
 
-                        # Baris detail tambahan
                         indices = ov.get("indices") or []
                         tags = ov.get("tags") or []
                         listing_date = ov.get("listing_date", "-")
@@ -552,13 +574,17 @@ elif page == "🏢 Companies":
                             st.markdown(f"**Indices**: {', '.join(indices) if indices else '-'}")
                             st.markdown(f"**Tags**: {', '.join(tags[:5]) if tags else '-'}")
 
-                        # Cek apakah sudah dimonitor
                         already_monitored = any(
                             (r.get("company_symbol") == preview_symbol)
                             for r in relationships
                         )
                         if already_monitored:
                             st.info(f"ℹ️ `{preview_symbol}` sudah ada di monitoring.")
+
+                    # ---------- Add to Monitoring ----------
+                    st.divider()
+                    st.markdown("### ➕ Tambah ke Monitoring")
+                    st.caption("Perusahaan yang belum ada di database akan otomatis di-ingest. Relationship bisa di-set nanti di tab 🔗 Relationships.")
 
                     if not orgs:
                         st.warning("Bikin profile dulu di **Companies → Profile Perusahaan**.")
@@ -567,7 +593,6 @@ elif page == "🏢 Companies":
                         selected_org = st.selectbox("Profile", list(org_options.keys()), key="disc_org")
                         org_id = org_options[selected_org]
 
-                        # Multi-select
                         symbols = [c.get("symbol_clean") or c.get("symbol", "").replace(".JK", "") for c in comps]
                         selected_symbols = st.multiselect(
                             "Pilih perusahaan buat ditambah ke monitoring",
@@ -575,30 +600,45 @@ elif page == "🏢 Companies":
                             default=symbols[:5],
                         )
 
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            rel_type = st.selectbox("Relationship type",
-                                ["competitor", "supplier", "customer", "distributor", "partner", "other"],
-                                index=0 if info["mode"] == "Competitor" else 1,
-                                key="disc_reltype")
-                        with c2:
-                            priority = st.selectbox("Priority", ["high", "medium", "low"], index=1, key="disc_priority")
-
                         if st.button(f"➕ Tambah {len(selected_symbols)} ke Monitoring", type="primary"):
+                            from monitoring.ingest import Ingestor
+                            ing = Ingestor()
+
+                            ingested = 0
+                            ingest_failed = []
+                            for sym in selected_symbols:
+                                ck = get_conn()
+                                exists = ck.execute(
+                                    "SELECT symbol FROM companies WHERE symbol = ?", [sym]
+                                ).fetchone()
+                                ck.close()
+                                if not exists:
+                                    try:
+                                        with st.spinner(f"Ingest {sym}..."):
+                                            ing.ingest_smart(sym)
+                                        ingested += 1
+                                    except Exception as e:
+                                        ingest_failed.append(f"{sym}: {e}")
+
                             conn = get_conn()
                             added = 0
                             skipped = 0
                             for sym in selected_symbols:
-                                if add_relationship(conn, org_id, sym, rel_type, priority):
+                                if add_relationship(conn, org_id, sym):  # ← tanpa type
                                     added += 1
                                 else:
                                     skipped += 1
                             conn.close()
 
-                            st.toast(f"✓ {added} ditambah, {skipped} skip (udah ada)", icon="✅")
-                            st.success(f"✓ {added} berhasil ditambah")
+                            msg = f"✓ {added} ditambah ke monitoring"
+                            if ingested:
+                                msg += f", {ingested} di-ingest"
                             if skipped:
-                                st.info(f"⚠ {skipped} sudah ada di monitoring")
+                                msg += f", {skipped} skip (udah ada)"
+                            st.toast(msg, icon="✅")
+                            st.success(msg + ". Set relationship di tab 🔗 Relationships.")
+                            if ingest_failed:
+                                st.warning("Gagal ingest: " + "; ".join(ingest_failed))
                             st.rerun()
 
         except ImportError as e:
@@ -780,6 +820,48 @@ elif page == "🔗 Relationships":
                 st.info("Belum ada relationship.")
 
         with tab2:
+            # Section 1: Set relationship untuk yang belum di-set
+            conn = get_conn()
+            unset = conn.execute("""
+                SELECT r.company_symbol, c.name as company_name
+                FROM relationships r
+                JOIN companies c ON c.symbol = r.company_symbol
+                WHERE r.organization_id = ? AND r.relationship_type IS NULL
+            """, [org_id]).fetchall()
+            conn.close()
+
+            if unset:
+                st.markdown("### 🎯 Set Relationship untuk Monitored Companies")
+                st.caption("Perusahaan ini sudah di-monitoring tapi belum punya relationship.")
+                for row in unset:
+                    sym = row["company_symbol"]
+                    with st.expander(f"**{sym}** — {row['company_name']}"):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            rtype = st.selectbox(
+                                "Type",
+                                ["competitor", "supplier", "customer",
+                                 "distributor", "partner", "other"],
+                                key=f"rtype_{sym}",
+                            )
+                        with c2:
+                            prio = st.selectbox(
+                                "Priority",
+                                ["high", "medium", "low"],
+                                index=1,
+                                key=f"prio_{sym}",
+                            )
+                        if st.button("💾 Set", key=f"set_{sym}", type="primary"):
+                            from core.db import set_relationship_type
+                            ck = get_conn()
+                            set_relationship_type(ck, org_id, sym, rtype, prio)
+                            ck.close()
+                            st.toast(f"✓ {sym} → {rtype} [{prio}]", icon="✅")
+                            st.rerun()
+                st.divider()
+
+            # Section 2: Add manual (existing)
+            st.markdown("### ➕ Add Manual (dengan relationship langsung)")
             with st.form("add_rel_form"):
                 c1, c2, c3 = st.columns(3)
                 symbol = c1.text_input("Symbol", placeholder="ICBP").upper()
@@ -793,16 +875,29 @@ elif page == "🔗 Relationships":
                     if not symbol:
                         st.error("Symbol wajib diisi")
                     else:
+                        ck = get_conn()
+                        exists = ck.execute(
+                            "SELECT symbol FROM companies WHERE symbol = ?", [symbol]
+                        ).fetchone()
+                        ck.close()
+
+                        if not exists:
+                            try:
+                                from monitoring.ingest import Ingestor
+                                with st.spinner(f"Ingest {symbol}..."):
+                                    Ingestor().ingest_smart(symbol)
+                            except Exception as e:
+                                st.error(f"Gagal ingest {symbol}: {e}")
+                                st.stop()
+
                         conn = get_conn()
                         added = add_relationship(conn, org_id, symbol, rel_type, priority)
                         conn.close()
                         if added:
-                            st.toast(f"✓ {symbol} → {rel_type} [{priority}] berhasil ditambahkan!", icon="✅")
-                            st.success(f"✓ {symbol} → {rel_type} [{priority}]")
+                            st.toast(f"✓ {symbol} → {rel_type} [{priority}]", icon="✅")
                             st.rerun()
                         else:
-                            st.toast(f"⚠ {symbol} sudah ada", icon="⚠️")
-                            st.warning(f"⚠ {symbol} sudah ada (skip)")
+                            st.warning(f"⚠ {symbol} sudah ada")
 
         with tab3:
             conn = get_conn()
@@ -944,53 +1039,6 @@ elif page == "📅 Weekly Update":
 
     st.divider()
     st.caption("💡 **Tips:** Cek update ini CHEAP (cuma metadata). Ingest baru bayar 2 credits per perusahaan.")
-
-
-# ============================================================
-# 📥 INGEST DATA
-# ============================================================
-elif page == "📥 Ingest Data":
-    st.markdown('<div class="hero"><h1>Ingest Data</h1><p>Ambil data dari Sectors API.</p></div>', unsafe_allow_html=True)
-
-    # Cek Sectors API key
-    if not get_env_var("SECTORS_API_KEY"):
-        st.warning("⚠ SECTORS_API_KEY belum diset. Buka **⚙️ Settings** dulu.")
-
-    try:
-        from monitoring.ingest import Ingestor
-
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            symbols_input = st.text_area(
-                "Symbols (1 per baris atau dipisah koma)",
-                placeholder="BBCA\nBBRI\nADRO",
-                height=120,
-            )
-        with c2:
-            n_quarters = st.number_input("Jumlah kuartal", min_value=1, max_value=12, value=8)
-
-        if st.button("🚀 Ingest", type="primary"):
-            symbols = [s.strip().upper() for s in symbols_input.replace(",", "\n").split("\n") if s.strip()]
-            if not symbols:
-                st.error("Masukin minimal 1 symbol")
-            else:
-                progress = st.progress(0)
-                results = []
-                try:
-                    ing = Ingestor()
-                    for i, sym in enumerate(symbols):
-                        try:
-                            result = ing.ingest_smart(sym)
-                            results.append({"symbol": sym, "status": "✓", "detail": str(result)})
-                        except Exception as e:
-                            results.append({"symbol": sym, "status": "✗", "detail": str(e)})
-                        progress.progress((i + 1) / len(symbols))
-                    st.dataframe(pd.DataFrame(results), use_container_width=True, hide_index=True)
-                except Exception as e:
-                    st.error(f"Error: {e}")
-    except ImportError as e:
-        st.warning(f"Module `ingest` belum tersedia: {e}")
-
 
 # ============================================================
 # 📄 CSV IMPORT

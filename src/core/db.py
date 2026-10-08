@@ -289,9 +289,10 @@ def get_organization(conn, org_id):
     return dict(row) if row else None
 
 
-def add_relationship(conn, org_id, symbol, relationship_type, priority="medium", notes=""):
+def add_relationship(conn, org_id, symbol, relationship_type=None, priority="medium", notes=""):
     """
     Return True kalau baru, False kalau sudah ada.
+    relationship_type boleh None (user set nanti).
     """
     try:
         conn.execute("""
@@ -302,9 +303,24 @@ def add_relationship(conn, org_id, symbol, relationship_type, priority="medium",
         conn.commit()
         return True
     except sqlite3.IntegrityError:
-        # Sudah ada
         return False
 
+def set_relationship_type(conn, org_id, symbol, relationship_type, priority=None):
+    """Update relationship_type untuk relationship yang udah ada."""
+    if priority:
+        conn.execute("""
+            UPDATE relationships
+            SET relationship_type = ?, priority = ?
+            WHERE organization_id = ? AND company_symbol = ?
+        """, [relationship_type, priority, org_id, symbol])
+    else:
+        conn.execute("""
+            UPDATE relationships
+            SET relationship_type = ?
+            WHERE organization_id = ? AND company_symbol = ?
+        """, [relationship_type, org_id, symbol])
+    conn.commit()
+    return conn.total_changes > 0
 
 def get_relationships(conn, org_id, relationship_type=None):
     """Return list of dict dengan info company join."""
