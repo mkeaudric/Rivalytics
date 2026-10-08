@@ -52,11 +52,7 @@ from discovery.profile import (
 )
 from core.csv_import import import_csv, get_org_snapshots
 from core.ai_explain import explain
-from interpretation import (
-    interpret_general,
-    interpret_relative,
-)
-
+from core.context_interpreter import interpret_general, interpret_relative
 from monitoring.weekly import (
     check_updates,
     ingest_selected,
@@ -70,7 +66,7 @@ from monitoring.weekly import (
 # ============================================================
 st.set_page_config(
     page_title="Rivalytics",
-    page_icon="◈",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -699,7 +695,7 @@ elif page == "📅 Weekly Update":
 
     # Cek Update
     st.markdown("### 🔍 Step 1: Cek Update")
-    st.caption("Cek metadata (cheap). Ini nggak fetch data finansial, cuma cek apakah ada kuartal baru.")
+    st.caption("Cek metadata. Ini tidak fetch data finansial, hanya mengecek apakah ada kuartal baru.")
 
     if not orgs:
         st.warning("Belum ada profile. Bikin dulu di Companies → Profile Perusahaan.")
@@ -1051,36 +1047,7 @@ elif page == "🧠 Interpretation":
 
         # General — vs peer
         general = interpret_general(symbol, signal, companies, signals)
-
-        # Relative — vs user's OWN data (dari CSV)
-        user_delta = compute_user_delta(user_snapshots, signal["metric"], signal["period_label"])
-
-        if user_delta is None:
-            relative = (
-                f"⚠ **Data kamu tidak cukup** untuk dibandingkan.\n\n"
-                f"Signal: **{signal['signal_type']}** ({format_delta(signal['delta_pct'])}) "
-                f"di periode **{signal['period_label']}**.\n\n"
-                f"Kamu perlu data kuartal **{signal['period_label']}** dan "
-                f"**{signal['period_label'].split('-')[0]}{int(signal['period_label'].split('-')[1]) - 1}** "
-                f"untuk perbandingan YoY."
-            )
-        else:
-            diff = signal["delta_pct"] - user_delta
-            if signal["signal_type"] in ("revenue_deterioration", "profit_deterioration", "cash_flow_weakness"):
-                if diff < -10:
-                    verdict = f"{symbol} **jauh lebih buruk** dari kamu. Ini **peluang** ambil market share."
-                elif diff > 10:
-                    verdict = f"{symbol} **lebih baik** dari kamu. Waspada."
-                else:
-                    verdict = f"{symbol} sejalan dengan kamu."
-            else:
-                verdict = f"{symbol} berbeda dari kamu."
-
-            relative = (
-                f"**{symbol}**: **{signal['delta_pct']:+.1f}%** YoY ({signal['metric']})\n\n"
-                f"**Kamu** ({selected_org}): **{user_delta:+.1f}%** YoY (metric yang sama)\n\n"
-                f"→ {verdict}"
-            )
+        relative = interpret_relative(symbol, signal, user_snapshots, user_name=selected_org)
 
         a, b = st.columns(2)
         with a:
@@ -1091,6 +1058,31 @@ elif page == "🧠 Interpretation":
             st.markdown("### 🎯 vs Kamu")
             st.caption("Bandingin dengan data finansial kamu sendiri (dari CSV)")
             st.info(relative)
+
+        st.divider()
+        st.markdown("### 🤖 AI Deep Dive")
+        st.caption("Generate narasi lengkap dari interpretasi di atas menggunakan LLM.")
+
+        if not get_env_var("GROQ_API_KEY") and not get_env_var("OPENAI_API_KEY"):
+            st.warning("⚠ API key belum diset. Buka **⚙️ Settings** dulu.")
+        else:
+            provider = st.selectbox("Provider", ["groq", "openai"], key="interp_provider")
+
+            if st.button("🤖 Generate AI Explanation", type="primary", key="btn_interp_ai"):
+                with st.spinner("Menghubungi LLM..."):
+                    try:
+                        from core.ai_explain import explain_with_groq
+                        result = explain_with_groq(
+                            symbol=symbol,
+                            signal=signal,
+                            interpretation_general=general,
+                            interpretation_relative=relative,
+                            user_name=selected_org,
+                        )
+                        st.markdown("#### Hasil")
+                        st.markdown(result)
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
 
 # ============================================================

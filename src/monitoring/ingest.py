@@ -105,16 +105,13 @@ class Ingestor:
 
         finally:
             conn.close()
-
-
-def ingest_many(symbols: list, n_quarters: int = 8):
-    """Batch ingest. Return summary."""
-    ing = Ingestor()
-    results = []
-    for sym in symbols:
-        try:
-            results.append(ing.ingest(sym, n_quarters))
-        except Exception as e:
-            print(f"  ✗ {sym}: {e}")
-            results.append({"symbol": sym, "error": str(e)})
-    return results
+    
+    def ingest_many(symbols: list):
+        ing = Ingestor()
+        results = []
+        for sym in symbols:
+            try:
+                results.append(ing.ingest_smart(sym))
+            except Exception as e:
+                results.append({"symbol": sym, "error": str(e)})
+        return results

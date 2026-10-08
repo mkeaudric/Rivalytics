@@ -206,6 +206,70 @@ Jangan ulangi semua angka. Fokus pada insight.
     llm = get_provider(provider)
     return llm.complete(SYSTEM_PROMPT, user_prompt)
 
+# =========================
+# EXPLAIN VIA GROQ
+# =========================
+def explain_with_groq(
+    symbol: str,
+    signal: dict,
+    interpretation_general: str,
+    interpretation_relative: str,
+    user_name: str = "perusahaan kamu",
+) -> str:
+    """..."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return "⚠ **GROQ_API_KEY belum diset.**"
+
+    try:
+        from groq import Groq
+    except ImportError:
+        return "⚠ Package `groq` belum diinstall. Jalankan: `pip install groq`"
+
+    client = Groq(api_key=api_key)
+
+    gen_clean = (interpretation_general or "").replace("**", "")
+    rel_clean = (interpretation_relative or "").replace("**", "")
+
+    # Handle delta_pct None
+    if signal.get("delta_pct") is None:
+        delta_str = "n/a (basis negatif)"
+    else:
+        delta_str = f"{signal['delta_pct']:+.1f}%"
+
+    prompt = f"""Kamu adalah analis bisnis. Jelaskan signal berikut secara singkat, jelas, dan actionable.
+        PERUSAHAAN: {symbol}
+        SIGNAL: {signal['signal_type']}
+        PERIODE: {signal['period_label']}
+        DELTA: {delta_str}
+        SEVERITY: {signal['severity']}
+
+        INTERPRETASI UMUM (vs peer):
+        {gen_clean}
+
+        INTERPRETASI RELATIF (vs {user_name}):
+        {rel_clean}
+
+        Tulis penjelasan 3-4 kalimat yang:
+        1. Menjelaskan apa arti signal ini
+        2. Kenapa penting
+        3. Apa yang harus dilakukan user
+
+        Langsung paragraf, tanpa bullet points."""
+
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": "Kamu adalah analis bisnis profesional."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.5,
+            max_tokens=300,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"⚠ Gagal panggil Groq: {e}"
 
 # ---- CLI ----
 

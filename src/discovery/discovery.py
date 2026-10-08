@@ -1,7 +1,7 @@
 from typing import Optional
 from core.sectors_client import SectorsClient, clean_symbol
 from core.taxonomy import load_or_fetch_taxonomy
-from profile import CompanyProfile, SizeTier
+from discovery.profile import CompanyProfile, SizeTier
 
 
 def _market_cap_filter(user: CompanyProfile) -> str:

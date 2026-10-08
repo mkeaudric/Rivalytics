@@ -1,7 +1,7 @@
-from profile import CompanyProfile, SizeTier
-from sectors_client import SectorsClient
-from taxonomy import load_or_fetch_taxonomy
-from discovery import discover_competitors, discover_suppliers
+from discovery.profile import CompanyProfile, SizeTier
+from core.sectors_client import SectorsClient
+from core.taxonomy import load_or_fetch_taxonomy
+from discovery.discovery import discover_competitors, discover_suppliers
 
 
 def main():

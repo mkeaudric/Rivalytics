@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from sectors_client import SectorsClient
+from core.sectors_client import SectorsClient
 
 CACHE_DIR = Path("cache")
 CACHE_DIR.mkdir(exist_ok=True)
