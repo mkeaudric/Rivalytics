@@ -244,6 +244,30 @@ def save_env_var(key: str, value: str):
 def get_env_var(key: str) -> str:
     return os.environ.get(key, "")
 
+def _fmt_rupiah(v):
+    """Format angka ringkas: 4.4 T, 450 M, dll."""
+    if v is None:
+        return "-"
+    try:
+        v = float(v)
+    except (ValueError, TypeError):
+        return "-"
+    if abs(v) >= 1_000_000_000_000:
+        return f"Rp {v/1_000_000_000_000:.2f} T"
+    if abs(v) >= 1_000_000_000:
+        return f"Rp {v/1_000_000_000:.2f} M"
+    if abs(v) >= 1_000_000:
+        return f"Rp {v/1_000_000:.2f} jt"
+    return f"Rp {v:,.0f}"
+
+def _fmt_string(v, max_len=25):
+    """Potong string panjang dengan ellipsis di tengah."""
+    if not v:
+        return "-"
+    v = str(v)
+    if len(v) <= max_len:
+        return v
+    return v[:max_len-1] + "…"
 
 # ============================================================
 # LOAD DATA
@@ -282,9 +306,9 @@ with st.sidebar:
         "🏢 Companies",
         "🔔 Signals",
         "🔗 Relationships",
+        "📄 CSV Import",
         "📅 Weekly Update",
         "📥 Ingest Data",
-        "📄 CSV Import",
         "📊 Reports & AI",
         "🧠 Interpretation",
         "⚙️ Settings",
@@ -377,7 +401,7 @@ elif page == "🏢 Companies":
         # ---------- TAB 2: DISCOVERY ----------
     with tab2:
         st.markdown("**Discovery** — cari kompetitor/supplier kandidat")
-        st.caption("Discovery itu cheap (gratis). Ingest baru bayar 2 credits/company.")
+        st.caption("Discovery menggunakan 1 credits/company. Ingest menggunakan 2 credits/company.")
 
         try:
             from discovery.discovery import discover_competitors, discover_suppliers
@@ -404,7 +428,7 @@ elif page == "🏢 Companies":
 
             # Preview & Search
             if st.button("🔍 Discover Sekarang", type="primary"):
-                with st.spinner("Cari kandidat (cheap)..."):
+                with st.spinner("Cari kandidat..."):
                     try:
                         client = SectorsClient()
                         taxonomy = load_or_fetch_taxonomy(client)
@@ -455,7 +479,86 @@ elif page == "🏢 Companies":
 
                     # Bulk action
                     st.divider()
-                    st.markdown("### ➕ Tambah ke Monitoring")
+                    st.markdown("### 👁️ Preview Detail Kandidat")
+                    st.caption("Pilih kandidat untuk melihat detail sebelum menambahkan ke monitoring.")
+
+                    candidate_map = {
+                        (c.get("symbol_clean") or c.get("symbol", "").replace(".JK", "")): c
+                        for c in comps
+                    }
+                    preview_symbol = st.selectbox(
+                        "Pilih kandidat untuk preview",
+                        list(candidate_map.keys()),
+                        key="preview_candidate",
+                    )
+
+                    # Cache detail per symbol di session state biar gak fetch ulang
+                    cache_key = f"detail_cache_{preview_symbol}"
+                    if cache_key not in st.session_state:
+                        with st.spinner(f"Fetching detail {preview_symbol}..."):
+                            try:
+                                client = SectorsClient()
+                                report = client.get_company_report(
+                                    preview_symbol, sections="overview"
+                                )
+                                st.session_state[cache_key] = report
+                            except Exception as e:
+                                st.session_state[cache_key] = {"_error": str(e)}
+
+                    detail = st.session_state[cache_key]
+
+                    if "_error" in detail:
+                        st.error(f"Gagal fetch detail: {detail['_error']}")
+                    else:
+                        ov = detail.get("overview", {})
+                        name = detail.get("company_name", preview_symbol)
+
+                        st.markdown(f"#### {name} · `{preview_symbol}`")
+
+                        d1, d2 = st.columns(2)
+                        d1.metric("Market Cap", _fmt_rupiah(ov.get("market_cap")))
+                        d2.metric("Last Close", _fmt_rupiah(ov.get("last_close_price")))
+
+                        s1, s2 = st.columns(2)
+                        with s1:
+                            st.markdown(
+                                f"<div style='color: #8a8f98; font-size: 0.75rem; "
+                                f"text-transform: uppercase; letter-spacing: 0.05em;'>Sector</div>"
+                                f"<div style='font-size: 1.05rem; font-weight: 600; "
+                                f"margin-top: 0.15rem;'>{ov.get('sector', '-')}</div>",
+                                unsafe_allow_html=True,
+                            )
+                        with s2:
+                            st.markdown(
+                                f"<div style='color: #8a8f98; font-size: 0.75rem; "
+                                f"text-transform: uppercase; letter-spacing: 0.05em;'>Sub-sector</div>"
+                                f"<div style='font-size: 1.05rem; font-weight: 600; "
+                                f"margin-top: 0.15rem;'>{ov.get('sub_sector', '-')}</div>",
+                                unsafe_allow_html=True,
+                            )
+
+                        # Baris detail tambahan
+                        indices = ov.get("indices") or []
+                        tags = ov.get("tags") or []
+                        listing_date = ov.get("listing_date", "-")
+                        employee_num = ov.get("employee_num", "-")
+
+                        info_col1, info_col2 = st.columns(2)
+                        with info_col1:
+                            st.markdown(f"**Industry**: {ov.get('industry', '-')}")
+                            st.markdown(f"**Listing date**: {listing_date}")
+                            st.markdown(f"**Employees**: {employee_num}")
+                        with info_col2:
+                            st.markdown(f"**Indices**: {', '.join(indices) if indices else '-'}")
+                            st.markdown(f"**Tags**: {', '.join(tags[:5]) if tags else '-'}")
+
+                        # Cek apakah sudah dimonitor
+                        already_monitored = any(
+                            (r.get("company_symbol") == preview_symbol)
+                            for r in relationships
+                        )
+                        if already_monitored:
+                            st.info(f"ℹ️ `{preview_symbol}` sudah ada di monitoring.")
 
                     if not orgs:
                         st.warning("Bikin profile dulu di **Companies → Profile Perusahaan**.")
@@ -758,7 +861,7 @@ elif page == "📅 Weekly Update":
         selected_org_id = org_options[selected_org]
 
         if st.button("🔍 Cek Update Sekarang", type="primary"):
-            with st.spinner("Cek metadata (cheap)..."):
+            with st.spinner("Cek metadata..."):
                 try:
                     results = check_updates(org_id=selected_org_id)
                     st.session_state["weekly_results"] = results
